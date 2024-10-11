@@ -1,5 +1,49 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
+use crate::Value;
+
+#[derive(Debug)]
+pub enum Error {
+    /// UncheckedErrors are errors that *should* be caught by the
+    ///   TypeChecker and other check passes. Test executions may
+    ///   trigger these errors.
+    // Unchecked(CheckErrors),
+    Interpreter(InterpreterError),
+    Runtime(RuntimeErrorType, Option<StackTrace>),
+    // ShortReturn(ShortReturnType),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum InterpreterError {
+    BadSender(Value),
+    BadSymbolicRepresentation(String),
+    InterpreterError(String),
+    UninitializedPersistedVariable,
+    FailedToConstructAssetTable,
+    FailedToConstructEventBatch,
+    #[cfg(feature = "canonical")]
+    SqliteError(IncomparableError<SqliteError>),
+    BadFileName,
+    FailedToCreateDataDirectory,
+    MarfFailure(String),
+    FailureConstructingTupleWithType,
+    FailureConstructingListWithType,
+    InsufficientBalance,
+    CostContractLoadFailure,
+    DBError(String),
+    Expect(String),
+}
+
+impl From<InterpreterError> for Error {
+    fn from(err: InterpreterError) -> Self {
+        Error::Interpreter(err)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum CheckErrors {
+    ValueTooLarge,
+}
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct FunctionIdentifier {
@@ -15,14 +59,14 @@ impl fmt::Display for FunctionIdentifier {
 pub type StackTrace = Vec<FunctionIdentifier>;
 
 #[derive(Debug)]
-pub enum Error {
-    /// UncheckedErrors are errors that *should* be caught by the
-    ///   TypeChecker and other check passes. Test executions may
-    ///   trigger these errors.
-    // Unchecked(CheckErrors),
-    // Interpreter(InterpreterError),
-    Runtime(RuntimeErrorType, Option<StackTrace>),
-    // ShortReturn(ShortReturnType),
+pub struct IncomparableError<T> {
+    pub err: T,
+}
+
+impl<T> PartialEq<IncomparableError<T>> for IncomparableError<T> {
+    fn eq(&self, _other: &IncomparableError<T>) -> bool {
+        return false;
+    }
 }
 
 #[derive(Debug, PartialEq)]

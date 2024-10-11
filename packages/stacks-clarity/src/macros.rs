@@ -64,3 +64,46 @@ macro_rules! guarded_string {
         }
     };
 }
+
+#[macro_export]
+macro_rules! define_u8_enum {
+    ($(#[$outer:meta])*
+     $Name:ident {
+         $(
+             $(#[$inner:meta])*
+             $Variant:ident = $Val:literal),+
+     }) =>
+    {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+        #[repr(u8)]
+        $(#[$outer])*
+        pub enum $Name {
+            $(  $(#[$inner])*
+                $Variant = $Val),*,
+        }
+        impl $Name {
+            /// All members of the enum
+            pub const ALL: &'static [$Name] = &[$($Name::$Variant),*];
+
+            /// Return the u8 representation of the variant
+            pub fn to_u8(&self) -> u8 {
+                match self {
+                    $(
+                        $Name::$Variant => $Val,
+                    )*
+                }
+            }
+
+            /// Returns Some and the variant if `v` is a u8 corresponding to a variant in this enum.
+            /// Returns None otherwise
+            pub fn from_u8(v: u8) -> Option<Self> {
+                match v {
+                    $(
+                        v if v == $Name::$Variant as u8 => Some($Name::$Variant),
+                    )*
+                    _ => None
+                }
+            }
+        }
+    }
+}

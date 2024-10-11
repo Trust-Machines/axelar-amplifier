@@ -1,3 +1,4 @@
+use clarity::codec::StacksMessageCodec;
 use crate::handlers::stacks_verify_msg::Message;
 use crate::stacks::error::Error;
 use crate::stacks::http_client::{Transaction, TransactionEvents};
@@ -64,6 +65,12 @@ impl Message {
             )?) {
                 return Ok(false);
             }
+
+            let value = PrincipalData::parse(
+                self.source_address.as_str(),
+            )?;
+
+            value.serialize_to_vec()
 
             if !data.get("sender")?.eq(&Value::from(PrincipalData::parse(
                 self.source_address.as_str(),

@@ -5186,6 +5186,7 @@ dependencies = [
  "service-registry",
  "service-registry-api",
  "sha3",
+ "stacks-clarity",
  "stellar",
  "stellar-xdr",
  "sui-gateway",

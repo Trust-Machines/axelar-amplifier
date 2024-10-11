@@ -1,65 +1,24 @@
 // package contains copy-pasted code from https://github.com/stacks-network/stacks-core/tree/2.5.0.0.7/clarity
 
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
+use std::collections::BTreeMap;
 use std::convert::TryInto;
-use std::fmt;
 use std::ops::Deref;
 
-use crate::errors::{InterpreterResult, RuntimeErrorType};
-use crate::common::c32;
+use crate::common::address::c32;
+use crate::errors::{InterpreterError, InterpreterResult, RuntimeErrorType};
+use crate::representations::{ClarityName, ContractName};
+use crate::signatures::BufferLength;
 
-mod common;
-mod errors;
-mod macros;
+pub mod common;
+pub mod errors;
+pub mod macros;
+pub mod representations;
+pub mod serialization;
+mod signatures;
 
-pub const CONTRACT_MIN_NAME_LENGTH: usize = 1;
-pub const CONTRACT_MAX_NAME_LENGTH: usize = 40;
-pub const MAX_STRING_LEN: u8 = 128;
-
-lazy_static! {
-    pub static ref STANDARD_PRINCIPAL_REGEX_STRING: String =
-        "[0123456789ABCDEFGHJKMNPQRSTVWXYZ]{28,41}".into();
-    pub static ref CONTRACT_NAME_REGEX_STRING: String = format!(
-        r#"([a-zA-Z](([a-zA-Z0-9]|[-_])){{{},{}}})"#,
-        CONTRACT_MIN_NAME_LENGTH - 1,
-        // NOTE: this is deliberate.  Earlier versions of the node will accept contract principals whose names are up to
-        // 128 bytes.  This behavior must be preserved for backwards-compatibility.
-        MAX_STRING_LEN - 1
-    );
-    pub static ref CONTRACT_PRINCIPAL_REGEX_STRING: String = format!(
-        r#"{}(\.){}"#,
-        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING
-    );
-    pub static ref PRINCIPAL_DATA_REGEX_STRING: String = format!(
-        "({})|({})",
-        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_PRINCIPAL_REGEX_STRING
-    );
-    pub static ref CLARITY_NAME_REGEX_STRING: String =
-        "^[a-zA-Z]([a-zA-Z0-9]|[-_!?+<>=/*])*$|^[-+=/*]$|^[<>]=?$".into();
-    pub static ref CLARITY_NAME_REGEX: Regex =
-    {
-        #[allow(clippy::unwrap_used)]
-        Regex::new(CLARITY_NAME_REGEX_STRING.as_str()).unwrap()
-    };
-    pub static ref CONTRACT_NAME_REGEX: Regex =
-    {
-        #[allow(clippy::unwrap_used)]
-        Regex::new(format!("^{}$|^__transient$", CONTRACT_NAME_REGEX_STRING.as_str()).as_str())
-            .unwrap()
-    };
-}
-
-guarded_string!(
-    ContractName,
-    "ContractName",
-    CONTRACT_NAME_REGEX,
-    MAX_STRING_LEN,
-    RuntimeErrorType,
-    RuntimeErrorType::BadNameValue
-);
+pub const MAX_VALUE_SIZE: u32 = 1024 * 1024; // 1MB
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct StandardPrincipalData(pub u8, pub [u8; 20]);
@@ -133,4 +92,100 @@ impl From<StandardPrincipalData> for PrincipalData {
     fn from(p: StandardPrincipalData) -> Self {
         PrincipalData::Standard(p)
     }
+}
+
+impl From<QualifiedContractIdentifier> for PrincipalData {
+    fn from(principal: QualifiedContractIdentifier) -> Self {
+        PrincipalData::Contract(principal)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Value {
+    // Int(i128),
+    // UInt(u128),
+    // Bool(bool),
+    Sequence(SequenceData),
+    // Principal(PrincipalData),
+    Tuple(TupleData),
+    // Optional(OptionalData),
+    // Response(ResponseData),
+    // CallableContract(CallableData),
+    // NOTE: any new value variants which may contain _other values_ (i.e.,
+    //  compound values like `Optional`, `Tuple`, `Response`, or `Sequence(List)`)
+    //  must be handled in the value sanitization routine!
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum SequenceData {
+    Buffer(BuffData),
+    List(ListData),
+    String(CharType),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuffData {
+    pub data: Vec<u8>,
+}
+
+impl BuffData {
+    pub fn len(&self) -> InterpreterResult<BufferLength> {
+        self.data
+            .len()
+            .try_into()
+            .map_err(|_| InterpreterError::Expect("Data length should be valid".into()).into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ListData {
+    pub data: Vec<Value>,
+}
+
+impl ListData {
+    pub fn len(&self) -> InterpreterResult<u32> {
+        self.data
+            .len()
+            .try_into()
+            .map_err(|_| InterpreterError::Expect("Data length should be valid".into()).into())
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum CharType {
+    UTF8(UTF8Data),
+    ASCII(ASCIIData),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UTF8Data {
+    pub data: Vec<Vec<u8>>,
+}
+
+impl UTF8Data {
+    pub fn len(&self) -> InterpreterResult<BufferLength> {
+        self.data
+            .len()
+            .try_into()
+            .map_err(|_| InterpreterError::Expect("Data length should be valid".into()).into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ASCIIData {
+    pub data: Vec<u8>,
+}
+
+impl ASCIIData {
+    pub fn len(&self) -> InterpreterResult<BufferLength> {
+        self.data
+            .len()
+            .try_into()
+            .map_err(|_| InterpreterError::Expect("Data length should be valid".into()).into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TupleData {
+    pub data_map: BTreeMap<ClarityName, Value>,
 }
