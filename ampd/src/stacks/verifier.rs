@@ -70,8 +70,6 @@ impl Message {
                 self.source_address.as_str(),
             )?;
 
-            value.serialize_to_vec()
-
             if !data.get("sender")?.eq(&Value::from(PrincipalData::parse(
                 self.source_address.as_str(),
             )?)) {

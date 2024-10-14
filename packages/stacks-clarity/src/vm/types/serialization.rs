@@ -1,10 +1,11 @@
-use std::io::{Read, Write};
-use crate::common::codec::{Error as codec_error};
 use crate::common::codec::StacksMessageCodec;
-use crate::{define_u8_enum, ContractName, PrincipalData, QualifiedContractIdentifier, StandardPrincipalData, Value};
-use crate::errors::IncomparableError;
-use serde::{Serialize, Deserialize};
-use crate::representations::{ClarityName, MAX_STRING_LEN};
+use crate::common::codec::Error as codec_error;
+use crate::define_u8_enum;
+use crate::vm::errors::IncomparableError;
+use crate::vm::representations::{ClarityName, ContractName};
+use crate::vm::types::{CallableData, OptionalData, PrincipalData, StandardPrincipalData, Value};
+use serde::{Deserialize, Serialize};
+use std::io::Write;
 
 #[derive(Debug, PartialEq)]
 pub enum SerializationError {
@@ -90,31 +91,31 @@ impl From<&Value> for TypePrefix {
         use super::Value::*;
 
         match v {
-            // Int(_) => TypePrefix::Int,
+            Int(_) => TypePrefix::Int,
             // UInt(_) => TypePrefix::UInt,
-            // Bool(value) => {
-            //     if *value {
-            //         TypePrefix::BoolTrue
-            //     } else {
-            //         TypePrefix::BoolFalse
-            //     }
-            // }
-            // Principal(p) => TypePrefix::from(p),
-            // Response(response) => {
-            //     if response.committed {
-            //         TypePrefix::ResponseOk
-            //     } else {
-            //         TypePrefix::ResponseErr
-            //     }
-            // }
-            // Optional(OptionalData { data: None }) => TypePrefix::OptionalNone,
-            // Optional(OptionalData { data: Some(_) }) => TypePrefix::OptionalSome,
+            Bool(value) => {
+                if *value {
+                    TypePrefix::BoolTrue
+                } else {
+                    TypePrefix::BoolFalse
+                }
+            }
+            Principal(p) => TypePrefix::from(p),
+            Response(response) => {
+                if response.committed {
+                    TypePrefix::ResponseOk
+                } else {
+                    TypePrefix::ResponseErr
+                }
+            }
+            Optional(OptionalData { data: None }) => TypePrefix::OptionalNone,
+            Optional(OptionalData { data: Some(_) }) => TypePrefix::OptionalSome,
             Tuple(_) => TypePrefix::Tuple,
             Sequence(Buffer(_)) => TypePrefix::Buffer,
             Sequence(List(_)) => TypePrefix::List,
             Sequence(String(CharType::ASCII(_))) => TypePrefix::StringASCII,
             Sequence(String(CharType::UTF8(_))) => TypePrefix::StringUTF8,
-            // &CallableContract(_) => TypePrefix::PrincipalContract,
+            &CallableContract(_) => TypePrefix::PrincipalContract,
         }
     }
 }
@@ -177,25 +178,25 @@ impl Value {
 
         w.write_all(&[TypePrefix::from(self) as u8])?;
         match self {
-            // Int(value) => w.write_all(&value.to_be_bytes())?,
+            Int(value) => w.write_all(&value.to_be_bytes())?,
             // UInt(value) => w.write_all(&value.to_be_bytes())?,
-            // Principal(Standard(data)) => data.serialize_write(w)?,
-            // Principal(Contract(contract_identifier))
-            // | CallableContract(CallableData {
-            //                        contract_identifier,
-            //                        trait_identifier: _,
-            //                    }) => {
-            //     contract_identifier.issuer.serialize_write(w)?;
-            //     contract_identifier.name.serialize_write(w)?;
-            // }
-            // Response(response) => response.data.serialize_write(w)?,
+            Principal(Standard(data)) => data.serialize_write(w)?,
+            Principal(Contract(contract_identifier))
+            | CallableContract(CallableData {
+                                   contract_identifier,
+                                   trait_identifier: _,
+                               }) => {
+                contract_identifier.issuer.serialize_write(w)?;
+                contract_identifier.name.serialize_write(w)?;
+            }
+            Response(response) => response.data.serialize_write(w)?,
             // // Bool types don't need any more data.
-            // Bool(_) => {}
+            Bool(_) => {}
             // // None types don't need any more data.
-            // Optional(OptionalData { data: None }) => {}
-            // Optional(OptionalData { data: Some(value) }) => {
-            //     value.serialize_write(w)?;
-            // }
+            Optional(OptionalData { data: None }) => {}
+            Optional(OptionalData { data: Some(value) }) => {
+                value.serialize_write(w)?;
+            }
             Sequence(List(data)) => {
                 let len_bytes = data
                     .len()

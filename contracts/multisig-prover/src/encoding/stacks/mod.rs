@@ -4,7 +4,7 @@ use axelar_wasm_std::hash::Hash;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message as RouterMessage;
 use sha3::{Digest, Keccak256};
-use stacks_clarity::PrincipalData;
+use stacks_clarity::vm::types::PrincipalData;
 
 #[derive(Debug)]
 pub struct Message {

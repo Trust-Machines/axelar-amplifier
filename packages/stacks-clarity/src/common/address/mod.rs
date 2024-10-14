@@ -1,6 +1,29 @@
-use std::fmt;
+// Copyright (C) 2013-2020 Blockstack PBC, a public benefit corporation
+// Copyright (C) 2020 Stacks Open Internet Foundation
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+use std::{error, fmt};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest};
 
 pub mod c32;
+
+pub const C32_ADDRESS_VERSION_MAINNET_SINGLESIG: u8 = 22; // P
+pub const C32_ADDRESS_VERSION_MAINNET_MULTISIG: u8 = 20; // M
+pub const C32_ADDRESS_VERSION_TESTNET_SINGLESIG: u8 = 26; // T
+pub const C32_ADDRESS_VERSION_TESTNET_MULTISIG: u8 = 21; // N
 
 #[derive(Debug)]
 pub enum Error {
@@ -36,6 +59,24 @@ impl fmt::Display for Error {
             Error::InvalidLength(ell) => write!(f, "length {} invalid for this base58 type", ell),
             Error::TooShort(_) => write!(f, "base58ck data not even long enough for a checksum"),
             Error::Other(ref s) => f.write_str(s),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn cause(&self) -> Option<&dyn error::Error> {
+        None
+    }
+    fn description(&self) -> &'static str {
+        match *self {
+            Error::InvalidCrockford32 => "Invalid crockford 32 string",
+            Error::InvalidVersion(_) => "Invalid version",
+            Error::EmptyData => "Empty data",
+            Error::BadByte(_) => "invalid b58 character",
+            Error::BadChecksum(_, _) => "invalid b58ck checksum",
+            Error::InvalidLength(_) => "invalid length for b58 type",
+            Error::TooShort(_) => "b58ck data less than 4 bytes",
+            Error::Other(_) => "unknown b58 error",
         }
     }
 }
