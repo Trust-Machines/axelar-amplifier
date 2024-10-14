@@ -66,10 +66,6 @@ impl Message {
                 return Ok(false);
             }
 
-            let value = PrincipalData::parse(
-                self.source_address.as_str(),
-            )?;
-
             if !data.get("sender")?.eq(&Value::from(PrincipalData::parse(
                 self.source_address.as_str(),
             )?)) {
