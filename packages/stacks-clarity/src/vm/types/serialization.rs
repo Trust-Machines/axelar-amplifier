@@ -92,7 +92,7 @@ impl From<&Value> for TypePrefix {
 
         match v {
             Int(_) => TypePrefix::Int,
-            // UInt(_) => TypePrefix::UInt,
+            UInt(_) => TypePrefix::UInt,
             Bool(value) => {
                 if *value {
                     TypePrefix::BoolTrue
@@ -179,7 +179,7 @@ impl Value {
         w.write_all(&[TypePrefix::from(self) as u8])?;
         match self {
             Int(value) => w.write_all(&value.to_be_bytes())?,
-            // UInt(value) => w.write_all(&value.to_be_bytes())?,
+            UInt(value) => w.write_all(&value.to_be_bytes())?,
             Principal(Standard(data)) => data.serialize_write(w)?,
             Principal(Contract(contract_identifier))
             | CallableContract(CallableData {

@@ -154,7 +154,7 @@ pub struct TraitIdentifier {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Int(i128),
-    // UInt(u128),
+    UInt(u128),
     Bool(bool),
     Sequence(SequenceData),
     Principal(PrincipalData),
@@ -758,7 +758,7 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Int(int) => write!(f, "{}", int),
-            // Value::UInt(int) => write!(f, "u{}", int),
+            Value::UInt(int) => write!(f, "u{}", int),
             Value::Bool(boolean) => write!(f, "{}", boolean),
             Value::Tuple(data) => write!(f, "{}", data),
             Value::Principal(principal_data) => write!(f, "{}", principal_data),

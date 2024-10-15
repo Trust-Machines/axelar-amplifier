@@ -1,7 +1,7 @@
 mod abi;
 mod bcs;
-mod stellar_xdr;
 mod stacks;
+mod stellar_xdr;
 
 use axelar_wasm_std::hash::Hash;
 use cosmwasm_schema::cw_serde;
@@ -35,9 +35,7 @@ impl Encoder {
             Encoder::StellarXdr => {
                 stellar_xdr::payload_digest(domain_separator, verifier_set, payload)
             }
-            Encoder::Stacks => {
-                todo!()
-            }
+            Encoder::Stacks => stacks::payload_digest(domain_separator, verifier_set, payload),
         }
     }
 

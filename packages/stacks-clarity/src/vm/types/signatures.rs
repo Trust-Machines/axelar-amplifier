@@ -1378,7 +1378,7 @@ impl TypeSignature {
         let out = match x {
             Value::Principal(_) => PrincipalType,
             Value::Int(_v) => IntType,
-            // Value::UInt(_v) => UIntType,
+            Value::UInt(_v) => UIntType,
             Value::Bool(_v) => BoolType,
             Value::Tuple(v) => TupleType(v.type_signature.clone()),
             Value::Sequence(SequenceData::List(list_data)) => list_data.type_signature()?,
