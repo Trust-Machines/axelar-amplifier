@@ -1,5 +1,5 @@
-use crate::common::codec::StacksMessageCodec;
 use crate::common::codec::Error as codec_error;
+use crate::common::codec::StacksMessageCodec;
 use crate::define_u8_enum;
 use crate::vm::errors::IncomparableError;
 use crate::vm::representations::{ClarityName, ContractName};
@@ -151,7 +151,6 @@ impl ClarityValueSerializable<StandardPrincipalData> for StandardPrincipalData {
     }
 }
 
-
 macro_rules! serialize_guarded_string {
     ($Name:ident) => {
         impl ClarityValueSerializable<$Name> for $Name {
@@ -161,7 +160,6 @@ macro_rules! serialize_guarded_string {
                 //   which are a subset of ASCII
                 w.write_all(self.as_str().as_bytes())
             }
-
         }
     };
 }
@@ -183,9 +181,9 @@ impl Value {
             Principal(Standard(data)) => data.serialize_write(w)?,
             Principal(Contract(contract_identifier))
             | CallableContract(CallableData {
-                                   contract_identifier,
-                                   trait_identifier: _,
-                               }) => {
+                contract_identifier,
+                trait_identifier: _,
+            }) => {
                 contract_identifier.issuer.serialize_write(w)?;
                 contract_identifier.name.serialize_write(w)?;
             }
@@ -213,7 +211,7 @@ impl Value {
                         .len()
                         .map_err(|e| SerializationError::SerializationError(e.to_string()))?,
                 )
-                    .to_be_bytes();
+                .to_be_bytes();
                 w.write_all(&len_bytes)?;
                 w.write_all(&value.data)?
             }
@@ -230,7 +228,7 @@ impl Value {
                         .len()
                         .map_err(|e| SerializationError::SerializationError(e.to_string()))?,
                 )
-                    .to_be_bytes();
+                .to_be_bytes();
                 w.write_all(&len_bytes)?;
                 w.write_all(&value.data)?
             }

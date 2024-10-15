@@ -16,20 +16,16 @@
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
-use std::ops::Deref;
+use std::hash::Hash;
 use std::sync::Arc;
 use std::{cmp, fmt};
 
 use crate::common::types::StacksEpochId;
 use crate::vm::analysis::errors::CheckErrors;
-use crate::vm::representations::{
-    ClarityName, ContractName, SymbolicExpression, SymbolicExpressionType, CONTRACT_MAX_NAME_LENGTH,
-};
+use crate::vm::representations::{ClarityName, CONTRACT_MAX_NAME_LENGTH};
 use crate::vm::types::{
     CharType, PrincipalData, QualifiedContractIdentifier, SequenceData, SequencedValue,
-    StandardPrincipalData, TraitIdentifier, Value, MAX_TYPE_DEPTH, MAX_VALUE_SIZE,
-    WRAPPER_VALUE_SIZE,
+    TraitIdentifier, Value, MAX_TYPE_DEPTH, MAX_VALUE_SIZE, WRAPPER_VALUE_SIZE,
 };
 use hashbrown::HashSet;
 use lazy_static::lazy_static;
@@ -44,28 +40,6 @@ pub struct AssetIdentifier {
 }
 
 impl AssetIdentifier {
-    #[allow(clippy::unwrap_used)]
-    pub fn STX() -> AssetIdentifier {
-        AssetIdentifier {
-            contract_identifier: QualifiedContractIdentifier::new(
-                StandardPrincipalData(0, [0u8; 20]),
-                ContractName::try_from("STX".to_string()).unwrap(),
-            ),
-            asset_name: ClarityName::try_from("STX".to_string()).unwrap(),
-        }
-    }
-
-    #[allow(clippy::unwrap_used)]
-    pub fn STX_burned() -> AssetIdentifier {
-        AssetIdentifier {
-            contract_identifier: QualifiedContractIdentifier::new(
-                StandardPrincipalData(0, [0u8; 20]),
-                ContractName::try_from("BURNED".to_string()).unwrap(),
-            ),
-            asset_name: ClarityName::try_from("BURNED".to_string()).unwrap(),
-        }
-    }
-
     pub fn sugared(&self) -> String {
         format!(".{}.{}", self.contract_identifier.name, self.asset_name)
     }
@@ -1435,63 +1409,6 @@ impl TypeSignature {
     }
 }
 
-/// Parsing functions.
-impl TypeSignature {
-    fn parse_atom_type(typename: &str) -> Result<TypeSignature> {
-        match typename {
-            "int" => Ok(TypeSignature::IntType),
-            "uint" => Ok(TypeSignature::UIntType),
-            "bool" => Ok(TypeSignature::BoolType),
-            "principal" => Ok(TypeSignature::PrincipalType),
-            _ => Err(CheckErrors::UnknownTypeName(typename.into())),
-        }
-    }
-
-    // Parses type signatures of the form:
-    // (buff 10)
-    fn parse_buff_type_repr(type_args: &[SymbolicExpression]) -> Result<TypeSignature> {
-        if type_args.len() != 1 {
-            return Err(CheckErrors::InvalidTypeDescription);
-        }
-        if let SymbolicExpressionType::LiteralValue(Value::Int(buff_len)) = &type_args[0].expr {
-            BufferLength::try_from(*buff_len)
-                .map(|buff_len| SequenceType(SequenceSubtype::BufferType(buff_len)))
-        } else {
-            Err(CheckErrors::InvalidTypeDescription)
-        }
-    }
-
-    // Parses type signatures of the form:
-    // (string-utf8 10)
-    fn parse_string_utf8_type_repr(type_args: &[SymbolicExpression]) -> Result<TypeSignature> {
-        if type_args.len() != 1 {
-            return Err(CheckErrors::InvalidTypeDescription);
-        }
-        if let SymbolicExpressionType::LiteralValue(Value::Int(utf8_len)) = &type_args[0].expr {
-            StringUTF8Length::try_from(*utf8_len).map(|utf8_len| {
-                SequenceType(SequenceSubtype::StringType(StringSubtype::UTF8(utf8_len)))
-            })
-        } else {
-            Err(CheckErrors::InvalidTypeDescription)
-        }
-    }
-
-    // Parses type signatures of the form:
-    // (string-ascii 10)
-    fn parse_string_ascii_type_repr(type_args: &[SymbolicExpression]) -> Result<TypeSignature> {
-        if type_args.len() != 1 {
-            return Err(CheckErrors::InvalidTypeDescription);
-        }
-        if let SymbolicExpressionType::LiteralValue(Value::Int(buff_len)) = &type_args[0].expr {
-            BufferLength::try_from(*buff_len).map(|buff_len| {
-                SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(buff_len)))
-            })
-        } else {
-            Err(CheckErrors::InvalidTypeDescription)
-        }
-    }
-}
-
 /// These implement the size calculations in TypeSignatures
 ///    in constructors of TypeSignatures, only `.inner_size()` may be called.
 ///    .inner_size is a failable method to compute the size of the type signature,
@@ -1783,7 +1700,6 @@ impl fmt::Display for FunctionArg {
 
 #[cfg(test)]
 mod test {
-    use super::CheckErrors::*;
     use super::*;
 
     #[test]

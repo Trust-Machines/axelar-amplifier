@@ -15,7 +15,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{error, fmt};
-use serde::{Deserialize, Serialize};
 use crate::vm::analysis::errors::CheckErrors;
 use crate::vm::contexts::StackTrace;
 use crate::vm::types::Value;
@@ -44,8 +43,6 @@ pub enum InterpreterError {
     UninitializedPersistedVariable,
     FailedToConstructAssetTable,
     FailedToConstructEventBatch,
-    #[cfg(feature = "canonical")]
-    SqliteError(IncomparableError<SqliteError>),
     BadFileName,
     FailedToCreateDataDirectory,
     MarfFailure(String),
@@ -187,7 +184,7 @@ impl From<InterpreterError> for Error {
 
 #[cfg(test)]
 impl From<Error> for () {
-    fn from(err: Error) -> Self {}
+    fn from(_: Error) -> Self {}
 }
 
 impl Into<Value> for ShortReturnType {
@@ -202,18 +199,6 @@ impl Into<Value> for ShortReturnType {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    #[cfg(feature = "developer-mode")]
-    fn error_formats() {
-        let t = "(/ 10 0)";
-        let expected = "DivisionByZero
- Stack Trace:
-_native_:native_div
-";
-
-        assert_eq!(format!("{}", execute(t).unwrap_err()), expected);
-    }
 
     #[test]
     fn equality() {

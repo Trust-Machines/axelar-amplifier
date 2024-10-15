@@ -1,4 +1,3 @@
-use clarity::codec::StacksMessageCodec;
 use crate::handlers::stacks_verify_msg::Message;
 use crate::stacks::error::Error;
 use crate::stacks::http_client::{Transaction, TransactionEvents};

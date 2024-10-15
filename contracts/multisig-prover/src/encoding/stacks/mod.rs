@@ -11,7 +11,7 @@ use sha3::{Digest, Keccak256};
 use stacks_clarity::common::codec::StacksMessageCodec;
 use stacks_clarity::common::types::StacksEpochId;
 use stacks_clarity::vm::analysis::errors::CheckErrors;
-use stacks_clarity::vm::errors::{Error as ClarityError, Error};
+use stacks_clarity::vm::errors::Error as ClarityError;
 use stacks_clarity::vm::representations::ClarityName;
 use stacks_clarity::vm::types::signatures::{
     BufferLength, ListTypeData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
@@ -28,7 +28,7 @@ pub struct Message {
     pub source_chain: Value,
     pub message_id: Value,
     pub source_address: Value,
-    pub contract_address: PrincipalData,
+    pub contract_address: Value,
     pub payload_hash: Value,
 }
 
@@ -48,7 +48,7 @@ impl TryFrom<&RouterMessage> for Message {
                 .map_err(|_| ContractError::InvalidMessage)?,
             source_address: Value::string_ascii_from_bytes(msg.source_address.as_bytes().to_vec())
                 .map_err(|_| ContractError::InvalidMessage)?,
-            contract_address,
+            contract_address: Value::Principal(contract_address),
             payload_hash: Value::buff_from(msg.payload_hash.to_vec())
                 .map_err(|_| ContractError::InvalidMessage)?,
         })
@@ -61,16 +61,13 @@ impl Message {
             (ClarityName::from("source-chain"), self.source_chain),
             (ClarityName::from("message-id"), self.message_id),
             (ClarityName::from("source-address"), self.source_address),
-            (
-                ClarityName::from("contract-address"),
-                Value::Principal(self.contract_address),
-            ),
+            (ClarityName::from("contract-address"), self.contract_address),
             (ClarityName::from("payload-hash"), self.payload_hash),
         ])?))
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct WeightedSigner {
     pub signer: Vec<u8>,
     pub weight: u128,
@@ -129,12 +126,12 @@ impl WeightedSigner {
 
 impl WeightedSigners {
     pub fn hash(self) -> Result<Hash, ContractError> {
-        let value = self.encode()?;
+        let value = self.try_into_value()?;
 
         Ok(Keccak256::digest(value.serialize_to_vec()).into())
     }
 
-    pub fn encode(self) -> Result<Value, ContractError> {
+    pub fn try_into_value(self) -> Result<Value, ContractError> {
         let weighted_signers: Vec<Value> = self
             .signers
             .into_iter()
@@ -186,7 +183,7 @@ pub fn ecdsa_key(pub_key: &PublicKey) -> Result<Vec<u8>, ContractError> {
     match pub_key {
         PublicKey::Ecdsa(ecdsa_key) => Ok(ecdsa_key.to_vec()),
         _ => Err(ContractError::InvalidPublicKey {
-            reason: "Public key is not ed25519".into(),
+            reason: "Public key is not ecdsa".into(),
         }),
     }
 }
@@ -250,7 +247,7 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
                 (
                     ClarityName::from("payload-hash"),
                     TypeSignature::SequenceType(SequenceSubtype::BufferType(
-                        BufferLength::try_from(18u32)?,
+                        BufferLength::try_from(32u32)?,
                     )),
                 ),
             ])?;
@@ -275,7 +272,7 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
             Ok(Value::from(tuple_data).serialize_to_vec())
         }
         Payload::VerifierSet(verifier_set) => {
-            let signers = WeightedSigners::try_from(verifier_set)?.encode()?;
+            let signers = WeightedSigners::try_from(verifier_set)?.try_into_value()?;
 
             let tuple_data = TupleData::from_data(vec![
                 (
@@ -288,5 +285,378 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
 
             Ok(Value::from(tuple_data).serialize_to_vec())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::encoding::stacks::WeightedSigner;
+    use crate::error::ContractError;
+    use crate::test::test_data::{curr_verifier_set, domain_separator, verifier_set_from_pub_keys};
+    use crate::{
+        encoding::stacks::{payload_digest, Message, WeightedSigners},
+        payload::Payload,
+    };
+    use cosmwasm_std::{Addr, HexBinary, Uint256};
+    use multisig::key::PublicKey;
+    use multisig::msg::Signer;
+    use router_api::{CrossChainId, Message as RouterMessage};
+    use stacks_clarity::common::codec::StacksMessageCodec;
+
+    #[test]
+    fn weighted_signers_hash() {
+        let expected_hash =
+            HexBinary::from_hex("663DAF037F6CD2C37A2BC72A11BD06A43E50CB3C7FFC2C42D393B5927E53A564")
+                .unwrap();
+        let verifier_set = curr_verifier_set();
+
+        let weighted_signers = WeightedSigners::try_from(&verifier_set);
+
+        assert!(weighted_signers.is_ok());
+
+        let weighted_signers = weighted_signers.unwrap();
+
+        assert_eq!(
+            weighted_signers.threshold.clone().expect_u128().unwrap(),
+            3u128
+        );
+        assert_eq!(
+            weighted_signers.nonce.clone().expect_buff(32).unwrap(),
+            Uint256::from(1u128).to_be_bytes()
+        );
+
+        let hash = weighted_signers.hash();
+
+        assert!(hash.is_ok());
+
+        assert_eq!(hash.unwrap(), expected_hash);
+    }
+
+    #[test]
+    fn rotate_signers_message_hash() {
+        let expected_hash =
+            HexBinary::from_hex("42cda0148cf0a4124670ca146155834b3e0135eaa1dd737632310294bfd89ed4")
+                .unwrap();
+
+        let domain_separator = domain_separator();
+
+        let new_pub_keys = vec![
+            "038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75",
+            "02ba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0",
+            "039d9031e97dd78ff8c15aa86939de9b1e791066a0224e331bc962a2099a7b1f04",
+        ];
+        let new_verifier_set = verifier_set_from_pub_keys(new_pub_keys);
+
+        let msg_to_sign = payload_digest(
+            &domain_separator,
+            &curr_verifier_set(),
+            &Payload::VerifierSet(new_verifier_set),
+        )
+        .unwrap();
+        assert_eq!(msg_to_sign, expected_hash);
+    }
+
+    #[test]
+    fn router_message_to_gateway_message() {
+        let source_chain = "chain0";
+        let message_id = "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0";
+        let source_address = "0x52444f1835Adc02086c37Cb226561605e2E1699b";
+        let destination_chain = "chain1";
+        let destination_address = "ST2D4483A7FHNKV1ANCBWQ4TEDH31ZY1R8AG6WFCA";
+        let payload_hash = "8c3685dc41c2eca11426f8035742fb97ea9f14931152670a5703f18fe8b392f0";
+
+        let router_messages = RouterMessage {
+            cc_id: CrossChainId {
+                source_chain: source_chain.parse().unwrap(),
+                message_id: message_id.parse().unwrap(),
+            },
+            source_address: source_address.parse().unwrap(),
+            destination_address: destination_address.parse().unwrap(),
+            destination_chain: destination_chain.parse().unwrap(),
+            payload_hash: HexBinary::from_hex(payload_hash)
+                .unwrap()
+                .to_array::<32>()
+                .unwrap(),
+        };
+
+        let gateway_message = Message::try_from(&router_messages).unwrap();
+        assert_eq!(
+            gateway_message.source_chain.expect_ascii().unwrap(),
+            source_chain
+        );
+        assert_eq!(
+            gateway_message.message_id.expect_ascii().unwrap(),
+            message_id
+        );
+        assert_eq!(
+            gateway_message.source_address.expect_ascii().unwrap(),
+            source_address
+        );
+        assert_eq!(
+            gateway_message
+                .contract_address
+                .expect_principal()
+                .unwrap()
+                .serialize_to_vec(),
+            HexBinary::from_hex("051a9a42206a3be359ec2aab17cb934e6c461ff83842")
+                .unwrap()
+                .as_slice(),
+        );
+        assert_eq!(
+            gateway_message
+                .payload_hash
+                .expect_buff(32)
+                .unwrap()
+                .as_slice(),
+            HexBinary::from_hex(payload_hash).unwrap().as_slice()
+        );
+
+        let tuple = Message::try_from(&router_messages)
+            .unwrap()
+            .try_into_value()
+            .unwrap()
+            .expect_tuple()
+            .unwrap();
+
+        assert_eq!(
+            tuple
+                .get("source-chain")
+                .unwrap()
+                .clone()
+                .expect_ascii()
+                .unwrap(),
+            source_chain,
+        );
+        assert_eq!(
+            tuple
+                .get("message-id")
+                .unwrap()
+                .clone()
+                .expect_ascii()
+                .unwrap(),
+            message_id,
+        );
+        assert_eq!(
+            tuple
+                .get("source-address")
+                .unwrap()
+                .clone()
+                .expect_ascii()
+                .unwrap(),
+            source_address,
+        );
+        assert_eq!(
+            tuple
+                .get("contract-address")
+                .unwrap()
+                .clone()
+                .expect_principal()
+                .unwrap()
+                .serialize_to_vec(),
+            HexBinary::from_hex("051a9a42206a3be359ec2aab17cb934e6c461ff83842")
+                .unwrap()
+                .as_slice(),
+        );
+        assert_eq!(
+            tuple
+                .get("payload-hash")
+                .unwrap()
+                .clone()
+                .expect_buff(32)
+                .unwrap()
+                .as_slice(),
+            HexBinary::from_hex(payload_hash).unwrap().as_slice(),
+        );
+    }
+
+    #[test]
+    fn router_message_to_gateway_message_error() {
+        let source_chain = "chain0";
+        let message_id = "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0";
+        let source_address = "0x52444f1835Adc02086c37Cb226561605e2E1699b";
+        let destination_chain = "chain1";
+        let destination_address = "0x52444f1835Adc02086c37Cb226561605e2E1699b";
+        let payload_hash = "8c3685dc41c2eca11426f8035742fb97ea9f14931152670a5703f18fe8b392f0";
+
+        let router_messages = RouterMessage {
+            cc_id: CrossChainId {
+                source_chain: source_chain.parse().unwrap(),
+                message_id: message_id.parse().unwrap(),
+            },
+            source_address: source_address.parse().unwrap(),
+            destination_address: destination_address.parse().unwrap(),
+            destination_chain: destination_chain.parse().unwrap(),
+            payload_hash: HexBinary::from_hex(payload_hash)
+                .unwrap()
+                .to_array::<32>()
+                .unwrap(),
+        };
+
+        let gateway_message = Message::try_from(&router_messages);
+
+        assert!(gateway_message.is_err());
+        assert_eq!(
+            gateway_message.unwrap_err().to_string(),
+            axelar_wasm_std::error::ContractError::from(ContractError::InvalidMessage).to_string()
+        );
+    }
+
+    #[test]
+    fn approve_messages_hash() {
+        let expected_hash =
+            HexBinary::from_hex("1579b575ab10e664a708372d22a5909d558bce5b7d5b5a0c9e64034599d298d3")
+                .unwrap();
+
+        let domain_separator = domain_separator();
+
+        let source_chain = "chain0";
+        let message_id = "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0";
+        let source_address = "0x52444f1835Adc02086c37Cb226561605e2E1699b";
+        let destination_chain = "chain1";
+        let destination_address = "ST2D4483A7FHNKV1ANCBWQ4TEDH31ZY1R8AG6WFCA";
+        let payload_hash = "8c3685dc41c2eca11426f8035742fb97ea9f14931152670a5703f18fe8b392f0";
+
+        let router_messages = RouterMessage {
+            cc_id: CrossChainId {
+                source_chain: source_chain.parse().unwrap(),
+                message_id: message_id.parse().unwrap(),
+            },
+            source_address: source_address.parse().unwrap(),
+            destination_address: destination_address.parse().unwrap(),
+            destination_chain: destination_chain.parse().unwrap(),
+            payload_hash: HexBinary::from_hex(payload_hash)
+                .unwrap()
+                .to_array::<32>()
+                .unwrap(),
+        };
+
+        let gateway_message = Message::try_from(&router_messages).unwrap();
+        assert_eq!(
+            gateway_message.source_chain.expect_ascii().unwrap(),
+            source_chain
+        );
+
+        let digest = payload_digest(
+            &domain_separator,
+            &curr_verifier_set(),
+            &Payload::Messages(vec![router_messages]),
+        )
+        .unwrap();
+
+        assert_eq!(digest, expected_hash);
+    }
+
+    #[test]
+    fn signer_to_weighted_signer() {
+        let verifier_set = curr_verifier_set();
+        let first_signer = verifier_set.signers.values().next().unwrap();
+
+        let weighted_signer = WeightedSigner::try_from(first_signer).unwrap();
+
+        assert_eq!(
+            weighted_signer.signer,
+            HexBinary::from_hex(
+                "038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75"
+            )
+            .unwrap()
+        );
+
+        assert_eq!(weighted_signer.weight, 1u128);
+
+        let first_signer = weighted_signer.try_into_value().unwrap();
+        let tuple = first_signer.expect_tuple().unwrap();
+
+        assert_eq!(
+            tuple
+                .get("signer")
+                .unwrap()
+                .clone()
+                .expect_buff(33)
+                .unwrap(),
+            PublicKey::Ecdsa(
+                HexBinary::from_hex(
+                    "038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75"
+                )
+                .unwrap()
+            )
+            .as_ref()
+        );
+        assert_eq!(
+            tuple.get("weight").unwrap().clone().expect_u128().unwrap(),
+            1,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Public key is not ecdsa")]
+    fn signer_to_weighted_signer_error() {
+        let signer = Signer {
+            address: Addr::unchecked("verifier"),
+            weight: 1u128.into(),
+            pub_key: PublicKey::Ed25519(
+                HexBinary::from_hex(
+                    "ca5b4abdf9eec1f8e2d12c187d41ddd054c81979cae9e8ee9f4ecab901cac5b6",
+                )
+                .unwrap(),
+            ),
+        };
+
+        let _ = WeightedSigner::try_from(&signer).unwrap();
+    }
+
+    #[test]
+    fn signers_to_weighted_signers() {
+        let verifier_set = curr_verifier_set();
+
+        let tuple = WeightedSigners::try_from(&verifier_set)
+            .unwrap()
+            .try_into_value()
+            .unwrap()
+            .expect_tuple()
+            .unwrap();
+
+        let signers = tuple.get("signers").unwrap().clone().expect_list().unwrap();
+        assert_eq!(signers.len(), 5);
+
+        let signer_tuple = signers.get(0).unwrap().clone().expect_tuple().unwrap();
+
+        assert_eq!(
+            signer_tuple
+                .get("signer")
+                .unwrap()
+                .clone()
+                .expect_buff(33)
+                .unwrap(),
+            PublicKey::Ecdsa(
+                HexBinary::from_hex(
+                    "0220b871f3ced029e14472ec4ebc3c0448164942b123aa6af91a3386c1c403e0eb"
+                )
+                .unwrap()
+            )
+            .as_ref()
+        );
+        assert_eq!(
+            signer_tuple
+                .get("weight")
+                .unwrap()
+                .clone()
+                .expect_u128()
+                .unwrap(),
+            1,
+        );
+
+        assert_eq!(
+            tuple
+                .get("threshold")
+                .unwrap()
+                .clone()
+                .expect_u128()
+                .unwrap(),
+            3,
+        );
+        assert_eq!(
+            tuple.get("nonce").unwrap().clone().expect_buff(32).unwrap(),
+            Uint256::from(1u128).to_be_bytes()
+        );
     }
 }

@@ -1,5 +1,5 @@
-use std::{error, fmt, io, mem};
-use std::io::{Read, Write};
+use std::{error, fmt, io};
+use std::io::{Write};
 
 #[macro_use]
 pub mod macros;

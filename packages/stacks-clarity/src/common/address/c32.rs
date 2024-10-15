@@ -226,13 +226,6 @@ fn c32_encode(input_bytes: &[u8]) -> String {
     String::from_utf8(result).unwrap()
 }
 
-fn c32_decode(input_str: &str) -> Result<Vec<u8>, Error> {
-    // must be ASCII
-    if !input_str.is_ascii() {
-        return Err(Error::InvalidCrockford32);
-    }
-    c32_decode_ascii(input_str)
-}
 
 fn c32_decode_ascii(input_str: &str) -> Result<Vec<u8>, Error> {
     let mut iter_c32_digits = Vec::<u8>::with_capacity(input_str.len());
@@ -374,8 +367,6 @@ pub fn c32_address(version: u8, data: &[u8]) -> Result<String, Error> {
 
 #[cfg(test)]
 mod test {
-    use rand::Rng;
-
     use super::*;
     use crate::common::util::hash::hex_bytes;
 
@@ -501,14 +492,12 @@ mod test {
             .map(|(hex_str, expected)| {
                 let bytes = hex_bytes(hex_str).unwrap();
                 let c32_encoded = c32_encode(&bytes);
-                let decoded_bytes = c32_decode(&c32_encoded).unwrap();
-                let result = (bytes, c32_encoded, decoded_bytes, expected);
+                let result = (c32_encoded, expected);
                 println!("{:?}", result);
                 result
             })
             .collect();
-        for (bytes, c32_encoded, decoded_bytes, expected_c32) in results.iter() {
-            assert_eq!(bytes, decoded_bytes);
+        for (c32_encoded, expected_c32) in results.iter() {
             assert_eq!(c32_encoded, *expected_c32);
         }
     }

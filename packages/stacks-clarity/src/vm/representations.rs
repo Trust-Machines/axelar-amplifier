@@ -132,9 +132,6 @@ pub enum PreSymbolicExpressionType {
 pub struct PreSymbolicExpression {
     pub pre_expr: PreSymbolicExpressionType,
     pub id: u64,
-
-    #[cfg(feature = "developer-mode")]
-    pub span: Span,
 }
 
 pub trait SymbolicExpressionCommon {
@@ -172,15 +169,6 @@ impl SymbolicExpressionCommon for SymbolicExpression {
 }
 
 impl PreSymbolicExpression {
-    #[cfg(feature = "developer-mode")]
-    fn cons() -> PreSymbolicExpression {
-        PreSymbolicExpression {
-            id: 0,
-            span: Span::zero(),
-            pre_expr: PreSymbolicExpressionType::AtomValue(Value::Bool(false)),
-        }
-    }
-    #[cfg(not(feature = "developer-mode"))]
     fn cons() -> PreSymbolicExpression {
         PreSymbolicExpression {
             id: 0,
@@ -188,17 +176,6 @@ impl PreSymbolicExpression {
         }
     }
 
-    #[cfg(feature = "developer-mode")]
-    pub fn set_span(&mut self, start_line: u32, start_column: u32, end_line: u32, end_column: u32) {
-        self.span = Span {
-            start_line,
-            start_column,
-            end_line,
-            end_column,
-        }
-    }
-
-    #[cfg(not(feature = "developer-mode"))]
     pub fn set_span(
         &mut self,
         _start_line: u32,
@@ -208,20 +185,8 @@ impl PreSymbolicExpression {
     ) {
     }
 
-    #[cfg(feature = "developer-mode")]
-    pub fn copy_span(&mut self, src: &Span) {
-        self.span = src.clone();
-    }
-
-    #[cfg(not(feature = "developer-mode"))]
     pub fn copy_span(&mut self, _src: &Span) {}
 
-    #[cfg(feature = "developer-mode")]
-    pub fn span(&self) -> &Span {
-        &self.span
-    }
-
-    #[cfg(not(feature = "developer-mode"))]
     pub fn span(&self) -> &Span {
         &Span::ZERO
     }
@@ -401,49 +366,15 @@ pub struct SymbolicExpression {
     //
     // this is a fairly standard technique in compiler passes
     pub id: u64,
-
-    #[cfg(feature = "developer-mode")]
-    pub span: Span,
-
-    #[cfg(feature = "developer-mode")]
-    pub pre_comments: Vec<(String, Span)>,
-    #[cfg(feature = "developer-mode")]
-    pub end_line_comment: Option<String>,
-    #[cfg(feature = "developer-mode")]
-    pub post_comments: Vec<(String, Span)>,
 }
 
 impl SymbolicExpression {
-    #[cfg(feature = "developer-mode")]
-    fn cons() -> SymbolicExpression {
-        SymbolicExpression {
-            id: 0,
-            expr: SymbolicExpressionType::AtomValue(Value::Bool(false)),
-            span: Span::zero(),
-            pre_comments: vec![],
-            end_line_comment: None,
-            post_comments: vec![],
-        }
-    }
-    #[cfg(not(feature = "developer-mode"))]
     fn cons() -> SymbolicExpression {
         SymbolicExpression {
             id: 0,
             expr: SymbolicExpressionType::AtomValue(Value::Bool(false)),
         }
     }
-
-    #[cfg(feature = "developer-mode")]
-    pub fn set_span(&mut self, start_line: u32, start_column: u32, end_line: u32, end_column: u32) {
-        self.span = Span {
-            start_line,
-            start_column,
-            end_line,
-            end_column,
-        }
-    }
-
-    #[cfg(not(feature = "developer-mode"))]
     pub fn set_span(
         &mut self,
         _start_line: u32,
@@ -453,20 +384,8 @@ impl SymbolicExpression {
     ) {
     }
 
-    #[cfg(feature = "developer-mode")]
-    pub fn copy_span(&mut self, src: &Span) {
-        self.span = src.clone();
-    }
-
-    #[cfg(not(feature = "developer-mode"))]
     pub fn copy_span(&mut self, _src: &Span) {}
 
-    #[cfg(feature = "developer-mode")]
-    pub fn span(&self) -> &Span {
-        &self.span
-    }
-
-    #[cfg(not(feature = "developer-mode"))]
     pub fn span(&self) -> &Span {
         &Span::ZERO
     }

@@ -15,8 +15,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{error, fmt};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest};
 
 pub mod c32;
 
@@ -64,9 +62,6 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
-    fn cause(&self) -> Option<&dyn error::Error> {
-        None
-    }
     fn description(&self) -> &'static str {
         match *self {
             Error::InvalidCrockford32 => "Invalid crockford 32 string",
@@ -78,5 +73,8 @@ impl error::Error for Error {
             Error::TooShort(_) => "b58ck data less than 4 bytes",
             Error::Other(_) => "unknown b58 error",
         }
+    }
+    fn cause(&self) -> Option<&dyn error::Error> {
+        None
     }
 }

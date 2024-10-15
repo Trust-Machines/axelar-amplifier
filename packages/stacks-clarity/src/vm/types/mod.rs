@@ -609,6 +609,15 @@ impl Value {
         }
     }
 
+    pub fn expect_u128(self) -> Result<u128> {
+        if let Value::UInt(inner) = self {
+            Ok(inner)
+        } else {
+            // error!("Value '{:?}' is not a u128", &self);
+            Err(InterpreterError::Expect("Expected u128".into()).into())
+        }
+    }
+
     pub fn expect_buff(self, sz: usize) -> Result<Vec<u8>> {
         if let Value::Sequence(SequenceData::Buffer(buffdata)) = self {
             if buffdata.data.len() <= sz {
@@ -677,11 +686,6 @@ impl BuffData {
         self.data.as_slice()
     }
 
-    fn append(&mut self, other_seq: &mut BuffData) -> Result<()> {
-        self.data.append(&mut other_seq.data);
-        Ok(())
-    }
-
     pub fn empty() -> Self {
         Self { data: Vec::new() }
     }
@@ -697,11 +701,6 @@ impl ListData {
 }
 
 impl ASCIIData {
-    fn append(&mut self, other_seq: &mut ASCIIData) -> Result<()> {
-        self.data.append(&mut other_seq.data);
-        Ok(())
-    }
-
     pub fn len(&self) -> Result<BufferLength> {
         self.data
             .len()
@@ -711,11 +710,6 @@ impl ASCIIData {
 }
 
 impl UTF8Data {
-    fn append(&mut self, other_seq: &mut UTF8Data) -> Result<()> {
-        self.data.append(&mut other_seq.data);
-        Ok(())
-    }
-
     pub fn len(&self) -> Result<BufferLength> {
         self.data
             .len()
