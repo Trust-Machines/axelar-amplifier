@@ -1,3 +1,5 @@
+pub mod execute_data;
+
 use crate::error::ContractError;
 use crate::Payload;
 use axelar_wasm_std::hash::Hash;
@@ -215,42 +217,7 @@ pub fn payload_digest(
 fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
     match payload {
         Payload::Messages(messages) => {
-            let messages: Vec<Value> = messages
-                .iter()
-                .map(Message::try_from)
-                .map(|message| message?.try_into_value())
-                .collect::<Result<_, _>>()?;
-
-            let message_type_signature = TupleTypeSignature::try_from(vec![
-                (
-                    ClarityName::from("source-chain"),
-                    TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                        BufferLength::try_from(32u32)?,
-                    ))),
-                ),
-                (
-                    ClarityName::from("message-id"),
-                    TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                        BufferLength::try_from(71u32)?,
-                    ))),
-                ),
-                (
-                    ClarityName::from("source-address"),
-                    TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                        BufferLength::try_from(48u32)?,
-                    ))),
-                ),
-                (
-                    ClarityName::from("contract-address"),
-                    TypeSignature::PrincipalType,
-                ),
-                (
-                    ClarityName::from("payload-hash"),
-                    TypeSignature::SequenceType(SequenceSubtype::BufferType(
-                        BufferLength::try_from(32u32)?,
-                    )),
-                ),
-            ])?;
+            let message_value = encode_messages(messages)?;
 
             let tuple_data = TupleData::from_data(vec![
                 (
@@ -258,15 +225,7 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
                     Value::string_ascii_from_bytes(TYPE_APPROVE_MESSAGES.as_bytes().to_vec())
                         .map_err(|_| ContractError::InvalidMessage)?,
                 ),
-                (
-                    ClarityName::from("data"),
-                    Value::list_with_type(
-                        &StacksEpochId::latest(),
-                        messages,
-                        ListTypeData::new_list(TypeSignature::from(message_type_signature), 10)?,
-                    )
-                    .map_err(|_| ContractError::InvalidMessage)?,
-                ),
+                (ClarityName::from("data"), message_value),
             ])?;
 
             Ok(Value::from(tuple_data).serialize_to_vec())
@@ -286,6 +245,52 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
             Ok(Value::from(tuple_data).serialize_to_vec())
         }
     }
+}
+
+fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError> {
+    let messages: Vec<Value> = messages
+        .iter()
+        .map(Message::try_from)
+        .map(|message| message?.try_into_value())
+        .collect::<Result<_, _>>()?;
+
+    let message_type_signature = TupleTypeSignature::try_from(vec![
+        (
+            ClarityName::from("source-chain"),
+            TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
+                BufferLength::try_from(32u32)?,
+            ))),
+        ),
+        (
+            ClarityName::from("message-id"),
+            TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
+                BufferLength::try_from(71u32)?,
+            ))),
+        ),
+        (
+            ClarityName::from("source-address"),
+            TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
+                BufferLength::try_from(48u32)?,
+            ))),
+        ),
+        (
+            ClarityName::from("contract-address"),
+            TypeSignature::PrincipalType,
+        ),
+        (
+            ClarityName::from("payload-hash"),
+            TypeSignature::SequenceType(SequenceSubtype::BufferType(BufferLength::try_from(
+                32u32,
+            )?)),
+        ),
+    ])?;
+
+    Ok(Value::list_with_type(
+        &StacksEpochId::latest(),
+        messages,
+        ListTypeData::new_list(TypeSignature::from(message_type_signature), 10)?,
+    )
+    .map_err(|_| ContractError::InvalidMessage)?)
 }
 
 #[cfg(test)]
