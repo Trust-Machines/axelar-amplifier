@@ -164,3 +164,113 @@ where
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use assert_ok::assert_ok;
+    use cosmwasm_std::HexBinary;
+    use itertools::Itertools;
+
+    use crate::test::test_data::{curr_verifier_set, domain_separator, verifier_set_from_pub_keys};
+    use crate::{encoding::stacks::execute_data::encode, payload::Payload};
+    use multisig::key::{KeyTyped, Signature};
+    use multisig::msg::{Signer, SignerWithSig};
+    use router_api::CrossChainId;
+    use router_api::Message as RouterMessage;
+
+    #[test]
+    fn rotate_signers_function_data() {
+        let domain_separator = domain_separator();
+
+        let new_pub_keys = vec![
+            "038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75",
+            "02ba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0",
+            "039d9031e97dd78ff8c15aa86939de9b1e791066a0224e331bc962a2099a7b1f04",
+        ];
+
+        let mut new_verifier_set = verifier_set_from_pub_keys(new_pub_keys);
+        new_verifier_set.created_at = 2024;
+
+        let verifier_set = curr_verifier_set();
+
+        // Generated signatures are already sorted by weight and pub key
+        let sigs: Vec<_> = vec![
+            "e3a7c09bfa26df8bbd207df89d7ba01100b809324b2987e1426081284a50485345a5a20b6d1d5844470513099937f1015ce8f4832d3df97d053f044103434d8c1b",
+            "895dacfb63684da2360394d5127696129bd0da531d6877348ff840fb328297f870773df3c259d15dd28dbd51d87b910e4156ff2f3c1dc5f64d337dea7968a9401b",
+            "7c685ecc8a42da4cd9d6de7860b0fddebb4e2e934357500257c1070b1a15be5e27f13b627cf9fa44f59d535af96be0a5ec214d988c48e2b5aaf3ba537d0215bb1b",
+        ].into_iter().map(|sig| HexBinary::from_hex(sig).unwrap()).collect();
+
+        let signers_with_sigs = signers_with_sigs(verifier_set.signers.values(), sigs);
+
+        let payload = Payload::VerifierSet(new_verifier_set);
+
+        assert_ok!(encode(
+            &domain_separator,
+            &verifier_set,
+            signers_with_sigs,
+            &payload,
+        ));
+
+        // TODO: Assert correct payload?
+    }
+
+    #[test]
+    fn approve_messages_function_data() {
+        let domain_separator = domain_separator();
+        let verifier_set = curr_verifier_set();
+
+        // Generated signatures are already sorted by weight and pub key
+        let sigs: Vec<_> = vec![
+            "756473c3061df7ea3fef7c52e0e875dca2c93f08ce4f1d33e694d64c713a56842017d92f0a1b796afe1c5343677ff261a072fb210ff3d43cc2784c0774d4da7b1b",
+            "5bdad2b95e700283402392a2f5878d185f92d588a6b4868460977c4f06f4216f0452c2e215c2878fe6e146db5b74f278716a99b418c6b2cb1d812ad28e686cd81c",
+            "4c9c52a99a3941a384c4a80b3c5a14c059020d3d2f29be210717bdb9270ed55937fcec824313c90c198188ea8eb3b47c2bafe5e96c11f79ec793d589358024191b",
+        ].into_iter().map(|sig| HexBinary::from_hex(sig).unwrap()).collect();
+
+        let signers_with_sigs = signers_with_sigs(verifier_set.signers.values(), sigs);
+
+        let source_chain = "chain0";
+        let message_id = "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0";
+        let source_address = "0x52444f1835Adc02086c37Cb226561605e2E1699b";
+        let destination_chain = "chain1";
+        let destination_address = "ST2D4483A7FHNKV1ANCBWQ4TEDH31ZY1R8AG6WFCA";
+        let payload_hash = "8c3685dc41c2eca11426f8035742fb97ea9f14931152670a5703f18fe8b392f0";
+
+        let router_message = RouterMessage {
+            cc_id: CrossChainId {
+                source_chain: source_chain.parse().unwrap(),
+                message_id: message_id.parse().unwrap(),
+            },
+            source_address: source_address.parse().unwrap(),
+            destination_address: destination_address.parse().unwrap(),
+            destination_chain: destination_chain.parse().unwrap(),
+            payload_hash: HexBinary::from_hex(payload_hash)
+                .unwrap()
+                .to_array::<32>()
+                .unwrap(),
+        };
+
+        let payload = Payload::Messages(vec![router_message]);
+
+        assert_ok!(encode(
+            &domain_separator,
+            &verifier_set,
+            signers_with_sigs,
+            &payload
+        ));
+
+        // TODO: Assert correct payload?
+    }
+
+    fn signers_with_sigs<'a>(
+        signers: impl Iterator<Item = &'a Signer>,
+        sigs: Vec<HexBinary>,
+    ) -> Vec<SignerWithSig> {
+        signers
+            .sorted_by(|s1, s2| Ord::cmp(&s1.pub_key, &s2.pub_key))
+            .zip(sigs)
+            .map(|(signer, sig)| {
+                signer.with_sig(Signature::try_from((signer.pub_key.key_type(), sig)).unwrap())
+            })
+            .collect()
+    }
+}
