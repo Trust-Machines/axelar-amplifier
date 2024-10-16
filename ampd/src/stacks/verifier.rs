@@ -1,17 +1,20 @@
-use crate::handlers::stacks_verify_msg::Message;
-use crate::stacks::error::Error;
-use crate::stacks::http_client::{Transaction, TransactionEvents};
 use axelar_wasm_std::voting::Vote;
 use clarity::vm::types::{
     BufferLength, PrincipalData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
     Value,
 };
 use clarity::vm::ClarityName;
-use cosmrs::tx::MessageExt;
+
+use crate::handlers::stacks_verify_msg::Message;
+use crate::handlers::stacks_verify_verifier_set::VerifierSetConfirmation;
+use crate::stacks::error::Error;
+use crate::stacks::http_client::{Transaction, TransactionEvents};
+use crate::stacks::WeightedSigners;
 
 const PRINT_TOPIC: &str = "print";
 
 const CONTRACT_CALL_TYPE: &str = "contract-call";
+const SIGNERS_ROTATED_TYPE: &str = "signers-rotated";
 
 impl Message {
     fn eq_event(&self, event: &TransactionEvents) -> Result<bool, Box<dyn std::error::Error>> {
@@ -100,6 +103,61 @@ impl Message {
     }
 }
 
+impl VerifierSetConfirmation {
+    fn eq_event(&self, event: &TransactionEvents) -> Result<bool, Box<dyn std::error::Error>> {
+        let contract_log = event.contract_log.as_ref().ok_or(Error::PropertyEmpty)?;
+
+        if contract_log.topic != PRINT_TOPIC {
+            return Ok(false);
+        }
+
+        let tuple_type_signature = TupleTypeSignature::try_from(vec![
+            (
+                ClarityName::from("type"),
+                TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
+                    BufferLength::try_from(15u32)?,
+                ))),
+            ),
+            (
+                ClarityName::from("signers-hash"),
+                TypeSignature::SequenceType(SequenceSubtype::BufferType(BufferLength::try_from(
+                    32u32,
+                )?)),
+            ),
+        ])?;
+
+        let hex = contract_log
+            .value
+            .hex
+            .strip_prefix("0x")
+            .ok_or(Error::PropertyEmpty)?;
+
+        let value =
+            Value::try_deserialize_hex(hex, &TypeSignature::TupleType(tuple_type_signature), true)?;
+
+        if let Value::Tuple(data) = value {
+            if !data.get("type")?.eq(&Value::string_ascii_from_bytes(
+                SIGNERS_ROTATED_TYPE.as_bytes().to_vec(),
+            )?) {
+                return Ok(false);
+            }
+
+            let weighted_signers = WeightedSigners::try_from(&self.verifier_set)?;
+
+            if !data
+                .get("signers-hash")?
+                .eq(&Value::buff_from(weighted_signers.hash()?.to_vec())?)
+            {
+                return Ok(false);
+            }
+
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+}
+
 fn find_event<'a>(
     transaction: &'a Transaction,
     gateway_address: &String,
@@ -132,14 +190,30 @@ pub fn verify_message(
     }
 }
 
+pub fn verify_verifier_set(
+    gateway_address: &String,
+    transaction: &Transaction,
+    verifier_set: VerifierSetConfirmation,
+) -> Vote {
+    if verifier_set.tx_id != transaction.tx_id {
+        return Vote::NotFound;
+    }
+
+    match find_event(transaction, gateway_address, verifier_set.event_index) {
+        Some(event) if verifier_set.eq_event(event).unwrap_or(false) => Vote::SucceededOnChain,
+        _ => Vote::NotFound,
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use axelar_wasm_std::voting::Vote;
+
     use crate::handlers::stacks_verify_msg::Message;
     use crate::stacks::http_client::{
         ContractLog, ContractLogValue, Transaction, TransactionEvents,
     };
     use crate::stacks::verifier::verify_message;
-    use axelar_wasm_std::voting::Vote;
 
     // test verify message
     #[test]
@@ -174,8 +248,8 @@ mod tests {
     fn should_not_verify_not_gateway() {
         let (gateway_address, mut tx, msg) = get_matching_msg_and_tx();
 
-        let mut transaction_events = tx.events.get_mut(1).unwrap();
-        let mut contract_call = transaction_events.contract_log.as_mut().unwrap();
+        let transaction_events = tx.events.get_mut(1).unwrap();
+        let contract_call = transaction_events.contract_log.as_mut().unwrap();
 
         contract_call.contract_id = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".to_string();
 
@@ -186,8 +260,8 @@ mod tests {
     fn should_not_verify_invalid_topic() {
         let (gateway_address, mut tx, msg) = get_matching_msg_and_tx();
 
-        let mut transaction_events = tx.events.get_mut(1).unwrap();
-        let mut contract_call = transaction_events.contract_log.as_mut().unwrap();
+        let transaction_events = tx.events.get_mut(1).unwrap();
+        let contract_call = transaction_events.contract_log.as_mut().unwrap();
 
         contract_call.topic = "other".to_string();
 
@@ -198,8 +272,8 @@ mod tests {
     fn should_not_verify_invalid_type() {
         let (gateway_address, mut tx, msg) = get_matching_msg_and_tx();
 
-        let mut transaction_events = tx.events.get_mut(1).unwrap();
-        let mut contract_call = transaction_events.contract_log.as_mut().unwrap();
+        let transaction_events = tx.events.get_mut(1).unwrap();
+        let contract_call = transaction_events.contract_log.as_mut().unwrap();
 
         // Remove 'call' as hex from `contract-call` data
         contract_call.value.hex = contract_call
@@ -276,8 +350,6 @@ mod tests {
                 .parse()
                 .unwrap(),
         };
-
-        let payload_hash = msg.payload_hash;
 
         let wrong_event = TransactionEvents {
             event_index: 0,
