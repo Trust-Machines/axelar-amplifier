@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use axelar_wasm_std::address::{validate_address, AddressFormat};
 use axelar_wasm_std::utils::TryMapExt;
 use axelar_wasm_std::voting::{PollId, PollResults, Vote, WeightedPoll};
-use axelar_wasm_std::{snapshot, MajorityThreshold, VerificationStatus};
+use axelar_wasm_std::{nonempty, snapshot, MajorityThreshold, VerificationStatus};
 use cosmwasm_std::{
     to_json_binary, Deps, DepsMut, Env, Event, MessageInfo, OverflowError, OverflowOperation,
     Response, Storage, WasmMsg,
@@ -33,6 +33,22 @@ pub fn update_voting_threshold(
             deps.storage,
             |mut config| -> Result<_, cosmwasm_std::StdError> {
                 config.voting_threshold = new_voting_threshold;
+                Ok(config)
+            },
+        )
+        .change_context(ContractError::StorageError)?;
+    Ok(Response::new())
+}
+
+pub fn update_source_gateway_address(
+    deps: DepsMut,
+    new_source_gateway_address: nonempty::String,
+) -> Result<Response, ContractError> {
+    CONFIG
+        .update(
+            deps.storage,
+            |mut config| -> Result<_, cosmwasm_std::StdError> {
+                config.source_gateway_address = new_source_gateway_address;
                 Ok(config)
             },
         )

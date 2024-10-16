@@ -81,7 +81,13 @@ pub fn execute(
             deps,
             new_voting_threshold,
         )?),
-        // TODO: Add method to update source_gateway_address to allow upgrades
+        // TODO: Add test for this
+        ExecuteMsg::UpdateSourceGatewayAddress {
+            new_source_gateway_address,
+        } => Ok(execute::update_source_gateway_address(
+            deps,
+            new_source_gateway_address,
+        )?),
     }
 }
 
