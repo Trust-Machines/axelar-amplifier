@@ -1,7 +1,5 @@
 pub mod execute_data;
 
-use crate::error::ContractError;
-use crate::Payload;
 use axelar_wasm_std::hash::Hash;
 use cosmwasm_std::Uint256;
 use error_stack::ResultExt;
@@ -19,6 +17,9 @@ use stacks_clarity::vm::types::signatures::{
     BufferLength, ListTypeData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
 };
 use stacks_clarity::vm::types::{PrincipalData, TupleData, Value};
+
+use crate::error::ContractError;
+use crate::Payload;
 
 const TYPE_APPROVE_MESSAGES: &str = "approve-messages";
 const TYPE_ROTATE_SIGNERS: &str = "rotate-signers";
@@ -295,18 +296,16 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
 
 #[cfg(test)]
 mod tests {
-    use crate::encoding::stacks::WeightedSigner;
-    use crate::error::ContractError;
-    use crate::test::test_data::{curr_verifier_set, domain_separator, verifier_set_from_pub_keys};
-    use crate::{
-        encoding::stacks::{payload_digest, Message, WeightedSigners},
-        payload::Payload,
-    };
     use cosmwasm_std::{Addr, HexBinary, Uint256};
     use multisig::key::PublicKey;
     use multisig::msg::Signer;
     use router_api::{CrossChainId, Message as RouterMessage};
     use stacks_clarity::common::codec::StacksMessageCodec;
+
+    use crate::encoding::stacks::{payload_digest, Message, WeightedSigner, WeightedSigners};
+    use crate::error::ContractError;
+    use crate::payload::Payload;
+    use crate::test::test_data::{curr_verifier_set, domain_separator, verifier_set_from_pub_keys};
 
     #[test]
     fn weighted_signers_hash() {

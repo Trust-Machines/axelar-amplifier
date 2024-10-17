@@ -226,7 +226,6 @@ fn c32_encode(input_bytes: &[u8]) -> String {
     String::from_utf8(result).unwrap()
 }
 
-
 fn c32_decode_ascii(input_str: &str) -> Result<Vec<u8>, Error> {
     let mut iter_c32_digits = Vec::<u8>::with_capacity(input_str.len());
 

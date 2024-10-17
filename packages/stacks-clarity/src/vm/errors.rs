@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{error, fmt};
+
 use crate::vm::analysis::errors::CheckErrors;
 use crate::vm::contexts::StackTrace;
 use crate::vm::types::Value;
@@ -53,7 +54,6 @@ pub enum InterpreterError {
     DBError(String),
     Expect(String),
 }
-
 
 /// RuntimeErrors are errors that smart contracts are expected
 ///   to be able to trigger during execution (e.g., arithmetic errors)
@@ -117,7 +117,6 @@ impl PartialEq<Error> for Error {
         }
     }
 }
-
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

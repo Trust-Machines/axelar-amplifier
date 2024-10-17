@@ -1,11 +1,12 @@
-use crate::common::codec::Error as codec_error;
-use crate::common::codec::StacksMessageCodec;
+use std::io::Write;
+
+use serde::{Deserialize, Serialize};
+
+use crate::common::codec::{Error as codec_error, StacksMessageCodec};
 use crate::define_u8_enum;
 use crate::vm::errors::IncomparableError;
 use crate::vm::representations::{ClarityName, ContractName};
 use crate::vm::types::{CallableData, OptionalData, PrincipalData, StandardPrincipalData, Value};
-use serde::{Deserialize, Serialize};
-use std::io::Write;
 
 #[derive(Debug, PartialEq)]
 pub enum SerializationError {

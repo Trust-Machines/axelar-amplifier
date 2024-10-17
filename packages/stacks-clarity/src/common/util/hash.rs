@@ -1,6 +1,7 @@
-use crate::common::util::HexError;
-use crate::common::util::pair::Pairable;
 use std::fmt::Write;
+
+use crate::common::util::pair::Pairable;
+use crate::common::util::HexError;
 
 // borrowed from Andrew Poelstra's rust-bitcoin library
 /// Convert a hexadecimal-encoded string to its corresponding bytes

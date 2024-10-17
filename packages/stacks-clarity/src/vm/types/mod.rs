@@ -17,20 +17,23 @@
 pub mod serialization;
 pub mod signatures;
 
-use crate::common::address::c32;
-use crate::common::types::StacksEpochId;
-use crate::common::util::hash;
-use crate::vm::errors::{
-    InterpreterError, InterpreterResult as Result, RuntimeErrorType,
-};
-use crate::vm::analysis::errors::CheckErrors;
-use crate::vm::representations::{ClarityName, ContractName, SymbolicExpression};
-use crate::vm::types::signatures::{BufferLength, ListTypeData, SequenceSubtype, StringSubtype, StringUTF8Length, TupleTypeSignature, TypeSignature};
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::fmt;
+
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+
+use crate::common::address::c32;
+use crate::common::types::StacksEpochId;
+use crate::common::util::hash;
+use crate::vm::analysis::errors::CheckErrors;
+use crate::vm::errors::{InterpreterError, InterpreterResult as Result, RuntimeErrorType};
+use crate::vm::representations::{ClarityName, ContractName, SymbolicExpression};
+use crate::vm::types::signatures::{
+    BufferLength, ListTypeData, SequenceSubtype, StringSubtype, StringUTF8Length,
+    TupleTypeSignature, TypeSignature,
+};
 
 pub const MAX_VALUE_SIZE: u32 = 1024 * 1024; // 1MB
 pub const BOUND_VALUE_SERIALIZATION_BYTES: u32 = MAX_VALUE_SIZE * 2;
@@ -247,7 +250,6 @@ impl fmt::Display for UTF8Data {
         write!(f, "u\"{}\"", result)
     }
 }
-
 
 pub trait SequencedValue<T> {
     fn type_signature(&self) -> std::result::Result<TypeSignature, CheckErrors>;
@@ -769,7 +771,8 @@ impl fmt::Display for Value {
                     write!(f, "{}", v)?;
                 }
                 write!(f, ")")
-            } Value::CallableContract(callable_data) => write!(f, "{}", callable_data),
+            }
+            Value::CallableContract(callable_data) => write!(f, "{}", callable_data),
         }
     }
 }

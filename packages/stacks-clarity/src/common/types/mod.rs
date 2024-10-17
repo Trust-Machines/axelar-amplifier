@@ -1,6 +1,7 @@
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
+
+use serde::{Deserialize, Serialize};
 
 /// A container for public keys (compressed secp256k1 public keys)
 pub struct StacksPublicKeyBuffer(pub [u8; 33]);

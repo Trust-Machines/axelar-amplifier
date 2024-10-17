@@ -1,6 +1,3 @@
-use crate::encoding::stacks::{ecdsa_key, encode_messages, payload_digest, WeightedSigners};
-use crate::error::ContractError;
-use crate::payload::Payload;
 use axelar_wasm_std::hash::Hash;
 use cosmwasm_std::HexBinary;
 use error_stack::ResultExt;
@@ -15,6 +12,10 @@ use stacks_clarity::vm::types::signatures::{
     BufferLength, ListTypeData, SequenceSubtype, TypeSignature,
 };
 use stacks_clarity::vm::types::{TupleData, Value};
+
+use crate::encoding::stacks::{ecdsa_key, encode_messages, payload_digest, WeightedSigners};
+use crate::error::ContractError;
+use crate::payload::Payload;
 
 pub const APPROVE_MESSAGES_FUNCTION: &str = "approve-messages";
 pub const ROTATE_SIGNERS_FUNCTION: &str = "rotate-signers";
@@ -170,13 +171,13 @@ mod tests {
     use assert_ok::assert_ok;
     use cosmwasm_std::HexBinary;
     use itertools::Itertools;
-
-    use crate::test::test_data::{curr_verifier_set, domain_separator, verifier_set_from_pub_keys};
-    use crate::{encoding::stacks::execute_data::encode, payload::Payload};
     use multisig::key::{KeyTyped, Signature};
     use multisig::msg::{Signer, SignerWithSig};
-    use router_api::CrossChainId;
-    use router_api::Message as RouterMessage;
+    use router_api::{CrossChainId, Message as RouterMessage};
+
+    use crate::encoding::stacks::execute_data::encode;
+    use crate::payload::Payload;
+    use crate::test::test_data::{curr_verifier_set, domain_separator, verifier_set_from_pub_keys};
 
     #[test]
     fn rotate_signers_function_data() {

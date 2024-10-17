@@ -44,6 +44,11 @@ pub fn update_source_gateway_address(
     deps: DepsMut,
     new_source_gateway_address: nonempty::String,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage).expect("failed to load config");
+
+    validate_address(&new_source_gateway_address, &config.address_format)
+        .change_context(ContractError::InvalidSourceGatewayAddress)?;
+
     CONFIG
         .update(
             deps.storage,

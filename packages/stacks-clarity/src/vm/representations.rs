@@ -19,13 +19,14 @@ use std::fmt;
 use std::io::Write;
 use std::ops::Deref;
 
+use lazy_static::lazy_static;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+
 use crate::common::codec::{write_next, Error as codec_error, StacksMessageCodec};
 use crate::guarded_string;
 use crate::vm::errors::RuntimeErrorType;
 use crate::vm::types::{TraitIdentifier, Value};
-use lazy_static::lazy_static;
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 
 pub const CONTRACT_MIN_NAME_LENGTH: usize = 1;
 pub const CONTRACT_MAX_NAME_LENGTH: usize = 40;

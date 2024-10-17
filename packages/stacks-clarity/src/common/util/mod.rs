@@ -1,8 +1,8 @@
 use std::{error, fmt};
 
 pub mod hash;
-pub mod pair;
 pub mod macros;
+pub mod pair;
 
 /// Hex deserialization error
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

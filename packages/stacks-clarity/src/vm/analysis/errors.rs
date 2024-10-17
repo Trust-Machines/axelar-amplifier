@@ -16,8 +16,8 @@
 
 use std::{error, fmt};
 
-use crate::vm::types::{Value};
 use crate::vm::types::signatures::{TupleTypeSignature, TypeSignature};
+use crate::vm::types::Value;
 
 #[derive(Debug, PartialEq)]
 pub enum CheckErrors {
@@ -58,7 +58,6 @@ pub enum CheckErrors {
     // union type mismatch
     // UnionTypeError(Vec<TypeSignature>, TypeSignature),
     // UnionTypeValueError(Vec<TypeSignature>, Value),
-
     ExpectedLiteral,
     // ExpectedOptionalType(TypeSignature),
     // ExpectedResponseType(TypeSignature),
@@ -114,7 +113,6 @@ pub enum CheckErrors {
     // PublicFunctionMustReturnResponse(TypeSignature),
     DefineVariableBadSignature,
     // ReturnTypesMustMatch(TypeSignature, TypeSignature),
-
     CircularReference(Vec<String>),
 
     // contract-call errors

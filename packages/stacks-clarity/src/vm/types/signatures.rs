@@ -20,6 +20,10 @@ use std::hash::Hash;
 use std::sync::Arc;
 use std::{cmp, fmt};
 
+use hashbrown::HashSet;
+use lazy_static::lazy_static;
+use serde::{Deserialize, Serialize};
+
 use crate::common::types::StacksEpochId;
 use crate::vm::analysis::errors::CheckErrors;
 use crate::vm::representations::{ClarityName, CONTRACT_MAX_NAME_LENGTH};
@@ -27,9 +31,6 @@ use crate::vm::types::{
     CharType, PrincipalData, QualifiedContractIdentifier, SequenceData, SequencedValue,
     TraitIdentifier, Value, MAX_TYPE_DEPTH, MAX_VALUE_SIZE, WRAPPER_VALUE_SIZE,
 };
-use hashbrown::HashSet;
-use lazy_static::lazy_static;
-use serde::{Deserialize, Serialize};
 
 type Result<R> = std::result::Result<R, CheckErrors>;
 

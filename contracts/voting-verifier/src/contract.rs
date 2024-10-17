@@ -81,7 +81,6 @@ pub fn execute(
             deps,
             new_voting_threshold,
         )?),
-        // TODO: Add test for this
         ExecuteMsg::UpdateSourceGatewayAddress {
             new_source_gateway_address,
         } => Ok(execute::update_source_gateway_address(
@@ -214,6 +213,55 @@ mod test {
                 rewards_address: REWARDS_ADDRESS.parse().unwrap(),
                 msg_id_format: msg_id_format.clone(),
                 address_format: AddressFormat::Eip55,
+            },
+        )
+        .unwrap();
+
+        deps.querier.update_wasm(move |wq| match wq {
+            WasmQuery::Smart { contract_addr, .. } if contract_addr == SERVICE_REGISTRY_ADDRESS => {
+                Ok(to_json_binary(
+                    &verifiers
+                        .clone()
+                        .into_iter()
+                        .map(|v| WeightedVerifier {
+                            verifier_info: v,
+                            weight: VERIFIER_WEIGHT,
+                        })
+                        .collect::<Vec<WeightedVerifier>>(),
+                )
+                .into())
+                .into()
+            }
+            _ => panic!("no mock for this query"),
+        });
+
+        deps
+    }
+
+    fn setup_stacks(
+        verifiers: Vec<Verifier>,
+        msg_id_format: &MessageIdFormat,
+    ) -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+        let mut deps = mock_dependencies();
+
+        instantiate(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("admin", &[]),
+            InstantiateMsg {
+                governance_address: GOVERNANCE.parse().unwrap(),
+                service_registry_address: SERVICE_REGISTRY_ADDRESS.parse().unwrap(),
+                service_name: SERVICE_NAME.parse().unwrap(),
+                source_gateway_address: "ST2N7SK0W83NJSZHFH8HH31ZT3DXJG7NFE6Y058RD.gateway-1"
+                    .parse()
+                    .unwrap(),
+                voting_threshold: initial_voting_threshold(),
+                block_expiry: POLL_BLOCK_EXPIRY.try_into().unwrap(),
+                confirmation_height: 100,
+                source_chain: source_chain(),
+                rewards_address: REWARDS_ADDRESS.parse().unwrap(),
+                msg_id_format: msg_id_format.clone(),
+                address_format: AddressFormat::Stacks,
             },
         )
         .unwrap();
@@ -1369,6 +1417,59 @@ mod test {
                 messages[0].clone(),
                 VerificationStatus::FailedToVerify
             )]
+        );
+    }
+
+    #[test]
+    fn should_be_able_to_update_source_gateway_and_then_query_new_one() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup_stacks(verifiers.clone(), &msg_id_format);
+
+        let new_source_gateway_address: nonempty::String =
+            "ST2N7SK0W83NJSZHFH8HH31ZT3DXJG7NFE6Y058RD.gateway-2"
+                .try_into()
+                .unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(GOVERNANCE, &[]),
+            ExecuteMsg::UpdateSourceGatewayAddress {
+                new_source_gateway_address: new_source_gateway_address.clone(),
+            },
+        )
+        .unwrap();
+
+        let config = CONFIG.load(&deps.storage).unwrap();
+
+        assert_eq!(config.source_gateway_address, new_source_gateway_address);
+    }
+
+    #[test]
+    fn update_source_gateway_validation_fails() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup_stacks(verifiers.clone(), &msg_id_format);
+
+        let new_source_gateway_address: nonempty::String =
+            "0x4F4495243837681061C4743b74B3eEdf548D56A5"
+                .try_into()
+                .unwrap();
+
+        let result = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(GOVERNANCE, &[]),
+            ExecuteMsg::UpdateSourceGatewayAddress {
+                new_source_gateway_address: new_source_gateway_address.clone(),
+            },
+        );
+
+        assert_err_contains!(
+            result,
+            ContractError,
+            ContractError::InvalidSourceGatewayAddress
         );
     }
 
