@@ -1,5 +1,6 @@
 mod abi;
 mod bcs;
+mod stacks;
 mod stellar_xdr;
 
 use axelar_wasm_std::hash::Hash;
@@ -18,6 +19,7 @@ pub enum Encoder {
     Abi,
     Bcs,
     StellarXdr,
+    Stacks,
 }
 
 impl Encoder {
@@ -33,6 +35,7 @@ impl Encoder {
             Encoder::StellarXdr => {
                 stellar_xdr::payload_digest(domain_separator, verifier_set, payload)
             }
+            Encoder::Stacks => stacks::payload_digest(domain_separator, verifier_set, payload),
         }
     }
 
@@ -47,6 +50,9 @@ impl Encoder {
             Encoder::Abi => abi::encode_execute_data(domain_separator, verifier_set, sigs, payload),
             Encoder::Bcs => bcs::encode_execute_data(domain_separator, verifier_set, sigs, payload),
             Encoder::StellarXdr => stellar_xdr::encode_execute_data(verifier_set, sigs, payload),
+            Encoder::Stacks => {
+                stacks::execute_data::encode(domain_separator, verifier_set, sigs, payload)
+            }
         }
     }
 }
