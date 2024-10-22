@@ -81,6 +81,7 @@ pub fn execute(
             deps,
             new_voting_threshold,
         )?),
+        // TODO: Remove this, only for Devnet testing!
         ExecuteMsg::UpdateSourceGatewayAddress {
             new_source_gateway_address,
         } => Ok(execute::update_source_gateway_address(
