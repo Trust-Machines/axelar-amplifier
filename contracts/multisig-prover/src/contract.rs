@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use error_stack::ResultExt;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
 mod execute;
@@ -48,6 +48,7 @@ pub fn instantiate(
         encoder: msg.encoder,
         key_type: msg.key_type,
         domain_separator: msg.domain_separator,
+        its_hub_address: address::validate_cosmwasm_address(deps.api, &msg.its_hub_address)?,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -72,6 +73,10 @@ pub fn execute(
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
     match msg.ensure_permissions(deps.storage, &info.sender)? {
         ExecuteMsg::ConstructProof(message_ids) => Ok(execute::construct_proof(deps, message_ids)?),
+        ExecuteMsg::ConstructProofWithPayload {
+            message_id,
+            payload,
+        } => todo!(),
         ExecuteMsg::UpdateVerifierSet {} => Ok(execute::update_verifier_set(deps, env)?),
         ExecuteMsg::ConfirmVerifierSet {} => Ok(execute::confirm_verifier_set(deps, info.sender)?),
         ExecuteMsg::UpdateSigningThreshold {
@@ -120,11 +125,10 @@ pub fn query(
 pub fn migrate(
     deps: DepsMut,
     _env: Env,
-    _msg: Empty,
+    msg: MigrateMsg,
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
-    migrations::v1_0_0::migrate(deps.storage)?;
+    migrations::v1_0_1::migrate(deps.storage, deps.api, msg.its_hub_address)?;
 
-    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     Ok(Response::default())
 }
 
@@ -148,10 +152,7 @@ mod tests {
     use crate::encoding::Encoder;
     use crate::msg::{ProofResponse, ProofStatus, VerifierSetResponse};
     use crate::test::test_data::{self, TestOperator};
-    use crate::test::test_utils::{
-        mock_querier_handler, ADMIN, COORDINATOR_ADDRESS, GATEWAY_ADDRESS, GOVERNANCE,
-        MULTISIG_ADDRESS, SERVICE_NAME, SERVICE_REGISTRY_ADDRESS, VOTING_VERIFIER_ADDRESS,
-    };
+    use crate::test::test_utils::{mock_querier_handler, ADMIN, COORDINATOR_ADDRESS, GATEWAY_ADDRESS, GOVERNANCE, ITS_HUB_ADDRESS, MULTISIG_ADDRESS, SERVICE_NAME, SERVICE_REGISTRY_ADDRESS, VOTING_VERIFIER_ADDRESS};
 
     const RELAYER: &str = "relayer";
     const MULTISIG_SESSION_ID: Uint64 = Uint64::one();
@@ -183,6 +184,7 @@ mod tests {
                 encoder: Encoder::Abi,
                 key_type: multisig::key::KeyType::Ecdsa,
                 domain_separator: [0; 32],
+                its_hub_address: ITS_HUB_ADDRESS.to_string(),
             },
         )
         .unwrap();
@@ -301,6 +303,7 @@ mod tests {
         let coordinator_address = "coordinator_address";
         let service_registry_address = "service_registry_address";
         let voting_verifier_address = "voting_verifier";
+        let its_hub_address = "its_hub";
         let signing_threshold = Threshold::try_from((
             test_data::threshold().numerator(),
             test_data::threshold().denominator(),
@@ -329,6 +332,7 @@ mod tests {
                 encoder: encoding,
                 key_type: multisig::key::KeyType::Ecdsa,
                 domain_separator: [0; 32],
+                its_hub_address: its_hub_address.to_string(),
             };
 
             let res = instantiate(deps.as_mut(), env, info, msg);

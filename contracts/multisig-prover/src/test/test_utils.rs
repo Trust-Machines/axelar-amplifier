@@ -14,6 +14,7 @@ pub const MULTISIG_ADDRESS: &str = "multisig";
 pub const COORDINATOR_ADDRESS: &str = "coordinator";
 pub const SERVICE_REGISTRY_ADDRESS: &str = "service_registry";
 pub const VOTING_VERIFIER_ADDRESS: &str = "voting_verifier";
+pub const ITS_HUB_ADDRESS: &str = "its_hub";
 pub const ADMIN: &str = "admin";
 pub const GOVERNANCE: &str = "governance";
 pub const SERVICE_NAME: &str = "validators";

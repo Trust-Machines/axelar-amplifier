@@ -33,6 +33,15 @@ pub fn construct_proof(
         config.chain_name.clone(),
     )?;
 
+    // Error in case we have messages from ITS Hub
+    if let Some(_) = messages
+        .iter()
+        .find(|msg| msg.cc_id.source_chain == "axelar"
+            && msg.source_address.as_str() == config.its_hub_address.as_str())
+    {
+        return Err(ContractError::InvalidMessages.into());
+    }
+
     let payload = Payload::Messages(messages);
     let payload_id = payload.id();
 
@@ -559,6 +568,7 @@ mod tests {
             encoder: crate::encoding::Encoder::Abi,
             key_type: multisig::key::KeyType::Ecdsa,
             domain_separator: [0; 32],
+            its_hub_address: Addr::unchecked("doesn't matter"),
         }
     }
 }
