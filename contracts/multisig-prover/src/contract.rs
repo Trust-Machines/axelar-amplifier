@@ -14,6 +14,7 @@ mod execute;
 mod migrations;
 mod query;
 mod reply;
+mod its;
 
 pub const START_MULTISIG_REPLY_ID: u64 = 1;
 
@@ -76,7 +77,7 @@ pub fn execute(
         ExecuteMsg::ConstructProofWithPayload {
             message_id,
             payload,
-        } => todo!(),
+        } => Ok(execute::construct_proof_with_payload(deps, message_id, payload)?),
         ExecuteMsg::UpdateVerifierSet {} => Ok(execute::update_verifier_set(deps, env)?),
         ExecuteMsg::ConfirmVerifierSet {} => Ok(execute::confirm_verifier_set(deps, info.sender)?),
         ExecuteMsg::UpdateSigningThreshold {

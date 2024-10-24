@@ -101,4 +101,7 @@ pub enum ContractError {
 
     #[error("messages are invalid")]
     InvalidMessages,
+
+    #[error("payload is invalid")]
+    InvalidPayload,
 }
