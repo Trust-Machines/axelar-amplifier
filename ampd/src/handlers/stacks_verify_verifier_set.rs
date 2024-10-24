@@ -138,3 +138,218 @@ impl EventHandler for Handler {
             .expect("vote msg should serialize")])
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::convert::TryInto;
+
+    use cosmrs::cosmwasm::MsgExecuteContract;
+    use cosmrs::tx::Msg;
+    use cosmwasm_std;
+    use cosmwasm_std::{HexBinary, Uint128};
+    use error_stack::Result;
+    use multisig::key::KeyType;
+    use multisig::test::common::{build_verifier_set, ecdsa_test_data};
+    use tokio::sync::watch;
+    use tokio::test as async_test;
+    use voting_verifier::events::{PollMetadata, PollStarted, VerifierSetConfirmation};
+
+    use super::PollStartedEvent;
+    use crate::event_processor::EventHandler;
+    use crate::handlers::tests::into_structured_event;
+    use crate::stacks::http_client::Client;
+    use crate::types::TMAddress;
+    use crate::PREFIX;
+
+    #[test]
+    fn should_deserialize_verifier_set_poll_started_event() {
+        let event: Result<PollStartedEvent, events::Error> = into_structured_event(
+            verifier_set_poll_started_event(participants(5, None), 100),
+            &TMAddress::random(PREFIX),
+        )
+        .try_into();
+
+        assert!(event.is_ok());
+
+        let event = event.unwrap();
+
+        assert!(event.poll_id == 100u64.into());
+        assert!(
+            event.source_gateway_address
+                == "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWC.axelar-gateway"
+        );
+
+        let verifier_set = event.verifier_set;
+
+        assert!(
+            verifier_set.tx_id
+                == "0xee0049faf8dde5507418140ed72bd64f73cc001b08de98e0c16a3a8d9f2c38cf"
+                    .parse()
+                    .unwrap()
+        );
+        assert!(verifier_set.event_index == 1u32);
+        assert!(verifier_set.verifier_set.signers.len() == 3);
+        assert_eq!(verifier_set.verifier_set.threshold, Uint128::from(2u128));
+
+        let mut signers = verifier_set.verifier_set.signers.values();
+        let signer1 = signers.next().unwrap();
+        let signer2 = signers.next().unwrap();
+
+        assert_eq!(
+            signer1.pub_key.as_ref(),
+            HexBinary::from_hex(
+                "025e0231bfad810e5276e2cf9eb2f3f380ce0bdf6d84c3b6173499d3ddcc008856",
+            )
+            .unwrap()
+            .as_ref()
+        );
+        assert_eq!(signer1.weight, Uint128::from(1u128));
+
+        assert_eq!(
+            signer2.pub_key.as_ref(),
+            HexBinary::from_hex(
+                "036ff6f4b2bc5e08aba924bd8fd986608f3685ca651a015b3d9d6a656de14769fe",
+            )
+            .unwrap()
+            .as_ref()
+        );
+        assert_eq!(signer2.weight, Uint128::from(1u128));
+    }
+
+    #[async_test]
+    async fn not_poll_started_event() {
+        let event = into_structured_event(
+            cosmwasm_std::Event::new("transfer"),
+            &TMAddress::random(PREFIX),
+        );
+
+        let handler = super::Handler::new(
+            TMAddress::random(PREFIX),
+            TMAddress::random(PREFIX),
+            Client::faux(),
+            watch::channel(0).1,
+        );
+
+        assert_eq!(handler.handle(&event).await.unwrap(), vec![]);
+    }
+
+    #[async_test]
+    async fn contract_is_not_voting_verifier() {
+        let event = into_structured_event(
+            verifier_set_poll_started_event(participants(5, None), 100),
+            &TMAddress::random(PREFIX),
+        );
+
+        let handler = super::Handler::new(
+            TMAddress::random(PREFIX),
+            TMAddress::random(PREFIX),
+            Client::faux(),
+            watch::channel(0).1,
+        );
+
+        assert_eq!(handler.handle(&event).await.unwrap(), vec![]);
+    }
+
+    #[async_test]
+    async fn verifier_is_not_a_participant() {
+        let voting_verifier = TMAddress::random(PREFIX);
+        let event = into_structured_event(
+            verifier_set_poll_started_event(participants(5, None), 100),
+            &voting_verifier,
+        );
+
+        let handler = super::Handler::new(
+            TMAddress::random(PREFIX),
+            voting_verifier,
+            Client::faux(),
+            watch::channel(0).1,
+        );
+
+        assert_eq!(handler.handle(&event).await.unwrap(), vec![]);
+    }
+
+    #[async_test]
+    async fn should_skip_expired_poll() {
+        let mut client = Client::faux();
+        faux::when!(client.get_valid_transaction).then(|_| None);
+
+        let voting_verifier = TMAddress::random(PREFIX);
+        let verifier = TMAddress::random(PREFIX);
+        let expiration = 100u64;
+        let event = into_structured_event(
+            verifier_set_poll_started_event(
+                vec![verifier.clone()].into_iter().collect(),
+                expiration,
+            ),
+            &voting_verifier,
+        );
+
+        let (tx, rx) = watch::channel(expiration - 1);
+
+        let handler = super::Handler::new(verifier, voting_verifier, client, rx);
+
+        // poll is not expired yet, should hit proxy
+        let actual = handler.handle(&event).await.unwrap();
+        assert_eq!(actual.len(), 1);
+
+        let _ = tx.send(expiration + 1);
+
+        // poll is expired
+        assert_eq!(handler.handle(&event).await.unwrap(), vec![]);
+    }
+
+    #[async_test]
+    async fn should_vote_correctly() {
+        let mut client = Client::faux();
+        faux::when!(client.get_valid_transaction).then(|_| None);
+
+        let voting_verifier = TMAddress::random(PREFIX);
+        let worker = TMAddress::random(PREFIX);
+
+        let event = into_structured_event(
+            verifier_set_poll_started_event(participants(5, Some(worker.clone())), 100),
+            &voting_verifier,
+        );
+
+        let handler = super::Handler::new(worker, voting_verifier, client, watch::channel(0).1);
+
+        let actual = handler.handle(&event).await.unwrap();
+        assert_eq!(actual.len(), 1);
+        assert!(MsgExecuteContract::from_any(actual.first().unwrap()).is_ok());
+    }
+
+    fn verifier_set_poll_started_event(
+        participants: Vec<TMAddress>,
+        expires_at: u64,
+    ) -> PollStarted {
+        PollStarted::VerifierSet {
+            metadata: PollMetadata {
+                poll_id: "100".parse().unwrap(),
+                source_chain: "multiversx".parse().unwrap(),
+                source_gateway_address: "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWC.axelar-gateway"
+                    .parse()
+                    .unwrap(),
+                confirmation_height: 15,
+                expires_at,
+                participants: participants
+                    .into_iter()
+                    .map(|addr| cosmwasm_std::Addr::unchecked(addr.to_string()))
+                    .collect(),
+            },
+            verifier_set: VerifierSetConfirmation {
+                tx_id: "0xee0049faf8dde5507418140ed72bd64f73cc001b08de98e0c16a3a8d9f2c38cf"
+                    .parse()
+                    .unwrap(),
+                event_index: 1,
+                verifier_set: build_verifier_set(KeyType::Ecdsa, &ecdsa_test_data::signers()),
+            },
+        }
+    }
+
+    fn participants(n: u8, worker: Option<TMAddress>) -> Vec<TMAddress> {
+        (0..n)
+            .map(|_| TMAddress::random(PREFIX))
+            .chain(worker)
+            .collect()
+    }
+}
