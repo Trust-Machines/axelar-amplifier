@@ -1,7 +1,5 @@
 #![allow(deprecated)]
 
-use crate::contract::{CONTRACT_NAME, CONTRACT_VERSION};
-use crate::{state, Encoder};
 use axelar_wasm_std::error::ContractError;
 use axelar_wasm_std::hash::Hash;
 use axelar_wasm_std::{address, MajorityThreshold};
@@ -10,6 +8,9 @@ use cosmwasm_std::{Addr, Api, Storage};
 use cw_storage_plus::Item;
 use multisig::key::KeyType;
 use router_api::ChainName;
+
+use crate::contract::{CONTRACT_NAME, CONTRACT_VERSION};
+use crate::{state, Encoder};
 
 const BASE_VERSION: &str = "1.0.0";
 

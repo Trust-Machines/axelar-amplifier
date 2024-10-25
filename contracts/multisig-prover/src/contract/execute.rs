@@ -15,6 +15,7 @@ use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, CrossChainId, Message};
 use service_registry_api::WeightedVerifier;
 use sha3::{Digest, Keccak256};
+
 use crate::contract::its::get_its_payload_hash;
 use crate::contract::START_MULTISIG_REPLY_ID;
 use crate::error::ContractError;
@@ -38,7 +39,6 @@ pub fn construct_proof(
         config.chain_name.clone(),
     )?;
 
-    // TODO: Add test for this
     // Error in case we have messages from ITS Hub
     if let Some(_) = messages.iter().find(|msg| {
         msg.cc_id.source_chain.as_ref() == AXELAR_CHAIN_NAME
