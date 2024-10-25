@@ -2,7 +2,7 @@ use axelar_wasm_std::{address, permission_control};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
+    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
 };
 use error_stack::ResultExt;
 

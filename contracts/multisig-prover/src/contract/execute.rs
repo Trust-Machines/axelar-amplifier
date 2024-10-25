@@ -23,6 +23,8 @@ use crate::state::{
     Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
 };
 
+const AXELAR_CHAIN_NAME: &str = "axelar";
+
 pub fn construct_proof(
     deps: DepsMut,
     message_ids: Vec<CrossChainId>,
@@ -36,9 +38,10 @@ pub fn construct_proof(
         config.chain_name.clone(),
     )?;
 
+    // TODO: Add test for this
     // Error in case we have messages from ITS Hub
     if let Some(_) = messages.iter().find(|msg| {
-        msg.cc_id.source_chain == "axelar"
+        msg.cc_id.source_chain.as_ref() == AXELAR_CHAIN_NAME
             && msg.source_address.as_str() == config.its_hub_address.as_str()
     }) {
         return Err(ContractError::InvalidMessages.into());
@@ -104,15 +107,17 @@ pub fn construct_proof_with_payload(
         config.gateway.clone(),
         config.chain_name.clone(),
     )?;
+    // It was easier to reuse the above method, we will always have a message here
     let mut message = messages.remove(0);
 
     // Message needs to be from ITS Hub
-    if message.cc_id.source_chain != "axelar"
-        || message.source_address.as_str() == config.its_hub_address.as_str()
+    if message.cc_id.source_chain.as_ref() != AXELAR_CHAIN_NAME
+        || message.source_address.as_str() != config.its_hub_address.as_str()
     {
         return Err(ContractError::InvalidMessage.into());
     }
 
+    // Payload needs to be correct, corresponding to the payload hash
     if message.payload_hash.as_slice() != Keccak256::digest(&message_payload).as_slice() {
         return Err(ContractError::InvalidPayload.into());
     }

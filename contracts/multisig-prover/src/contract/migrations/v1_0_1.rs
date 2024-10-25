@@ -2,13 +2,11 @@
 
 use crate::contract::{CONTRACT_NAME, CONTRACT_VERSION};
 use crate::{state, Encoder};
-use axelar_wasm_std::address::AddressFormat;
 use axelar_wasm_std::error::ContractError;
 use axelar_wasm_std::hash::Hash;
-use axelar_wasm_std::msg_id::MessageIdFormat;
-use axelar_wasm_std::{address, nonempty, MajorityThreshold};
+use axelar_wasm_std::{address, MajorityThreshold};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Api, Response, Storage};
+use cosmwasm_std::{Addr, Api, Storage};
 use cw_storage_plus::Item;
 use multisig::key::KeyType;
 use router_api::ChainName;
@@ -72,7 +70,7 @@ pub const CONFIG: Item<Config> = Item::new("config");
 mod tests {
     use axelar_wasm_std::{MajorityThreshold, Threshold};
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{Api, DepsMut, Env, MessageInfo, Response};
+    use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
     use multisig::key::KeyType;
 
     use crate::contract::migrations::v1_0_1;
@@ -92,8 +90,7 @@ mod tests {
 
         assert!(v1_0_1::migrate(deps.storage, deps.api, "its_hub".to_string()).is_err());
 
-        cw2::set_contract_version(deps.storage, CONTRACT_NAME, v1_0_1::BASE_VERSION)
-            .unwrap();
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, v1_0_1::BASE_VERSION).unwrap();
 
         assert!(v1_0_1::migrate(deps.storage, deps.api, "its_hub".to_string()).is_ok());
     }
