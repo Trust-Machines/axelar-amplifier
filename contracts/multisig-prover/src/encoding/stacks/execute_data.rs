@@ -63,7 +63,7 @@ impl Proof {
                 TypeSignature::SequenceType(SequenceSubtype::BufferType(
                     BufferLength::try_from(65u32).map_err(|_| ContractError::InvalidMessage)?,
                 )),
-                48,
+                100,
             )?,
         )
         .map_err(|_| ContractError::InvalidMessage)?;

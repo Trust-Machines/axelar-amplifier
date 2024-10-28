@@ -157,7 +157,7 @@ impl WeightedSigners {
                 Value::list_with_type(
                     &StacksEpochId::latest(),
                     weighted_signers,
-                    ListTypeData::new_list(TypeSignature::from(signer_type_signature), 48)?,
+                    ListTypeData::new_list(TypeSignature::from(signer_type_signature), 100)?,
                 )
                 .map_err(|_| ContractError::InvalidMessage)?,
             ),
@@ -259,19 +259,19 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
         (
             ClarityName::from("source-chain"),
             TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                BufferLength::try_from(32u32)?,
+                BufferLength::try_from(20u32)?,
             ))),
         ),
         (
             ClarityName::from("message-id"),
             TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                BufferLength::try_from(71u32)?,
+                BufferLength::try_from(128u32)?,
             ))),
         ),
         (
             ClarityName::from("source-address"),
             TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                BufferLength::try_from(48u32)?,
+                BufferLength::try_from(128u32)?,
             ))),
         ),
         (
@@ -291,7 +291,7 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
         messages,
         ListTypeData::new_list(TypeSignature::from(message_type_signature), 10)?,
     )
-    .map_err(|_| ContractError::InvalidMessage)?)
+    .map_err(|_| ContractError::InvalidMessages)?)
 }
 
 #[cfg(test)]
