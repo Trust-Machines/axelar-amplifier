@@ -1,6 +1,6 @@
 [package]
 name = "multisig-prover"
-version = "1.0.0"
+version = "1.0.1"
 rust-version = { workspace = true }
 edition = { workspace = true }
 description = "Multisig prover contract"
@@ -64,6 +64,7 @@ stellar-xdr = { workspace = true }
 sui-gateway = { workspace = true }
 thiserror = { workspace = true }
 voting-verifier = { workspace = true, features = ["library"] }
+interchain-token-service = { workspace = true, features = ["library"] }
 
 [dev-dependencies]
 anyhow = "1.0"

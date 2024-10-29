@@ -5,20 +5,26 @@ use axelar_wasm_std::snapshot::{Participant, Snapshot};
 use axelar_wasm_std::{
     address, nonempty, permission_control, FnExt, MajorityThreshold, VerificationStatus,
 };
-use cosmwasm_std::{wasm_execute, Addr, DepsMut, Env, QuerierWrapper, Response, Storage, SubMsg};
+use cosmwasm_std::{
+    wasm_execute, Addr, DepsMut, Env, HexBinary, QuerierWrapper, Response, Storage, SubMsg,
+};
 use error_stack::{report, Result, ResultExt};
 use itertools::Itertools;
 use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, CrossChainId, Message};
 use service_registry_api::WeightedVerifier;
+use sha3::{Digest, Keccak256};
 
+use crate::contract::its::get_its_payload_hash;
 use crate::contract::START_MULTISIG_REPLY_ID;
 use crate::error::ContractError;
 use crate::payload::Payload;
 use crate::state::{
     Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
 };
+
+const AXELAR_CHAIN_NAME: &str = "axelar";
 
 pub fn construct_proof(
     deps: DepsMut,
@@ -33,7 +39,92 @@ pub fn construct_proof(
         config.chain_name.clone(),
     )?;
 
+    // Error in case we have messages from ITS Hub
+    if let Some(_) = messages.iter().find(|msg| {
+        msg.cc_id.source_chain.as_ref() == AXELAR_CHAIN_NAME
+            && msg.source_address.as_str() == config.its_hub_address.as_str()
+    }) {
+        return Err(ContractError::InvalidMessages.into());
+    }
+
     let payload = Payload::Messages(messages);
+    let payload_id = payload.id();
+
+    match PAYLOAD
+        .may_load(deps.storage, &payload_id)
+        .map_err(ContractError::from)?
+    {
+        Some(stored_payload) => {
+            if stored_payload != payload {
+                return Err(report!(ContractError::PayloadMismatch))
+                    .attach_printable_lazy(|| format!("{:?}", stored_payload));
+            }
+        }
+        None => {
+            PAYLOAD
+                .save(deps.storage, &payload_id, &payload)
+                .map_err(ContractError::from)?;
+        }
+    };
+
+    // keep track of the payload id to use during submessage reply
+    REPLY_TRACKER
+        .save(deps.storage, &payload_id)
+        .map_err(ContractError::from)?;
+
+    let verifier_set = CURRENT_VERIFIER_SET
+        .may_load(deps.storage)
+        .map_err(ContractError::from)?
+        .ok_or(ContractError::NoVerifierSet)?;
+
+    let digest = config
+        .encoder
+        .digest(&config.domain_separator, &verifier_set, &payload)?;
+
+    let start_sig_msg = multisig::msg::ExecuteMsg::StartSigningSession {
+        verifier_set_id: verifier_set.id(),
+        msg: digest.into(),
+        chain_name: config.chain_name,
+        sig_verifier: None,
+    };
+
+    let wasm_msg =
+        wasm_execute(config.multisig, &start_sig_msg, vec![]).map_err(ContractError::from)?;
+
+    Ok(Response::new().add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID)))
+}
+
+pub fn construct_proof_with_payload(
+    deps: DepsMut,
+    message_id: CrossChainId,
+    message_payload: HexBinary,
+) -> error_stack::Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage).map_err(ContractError::from)?;
+
+    let mut messages = messages(
+        deps.querier,
+        vec![message_id],
+        config.gateway.clone(),
+        config.chain_name.clone(),
+    )?;
+    // It was easier to reuse the above method, we will always have a message here
+    let mut message = messages.remove(0);
+
+    // Message needs to be from ITS Hub
+    if message.cc_id.source_chain.as_ref() != AXELAR_CHAIN_NAME
+        || message.source_address.as_str() != config.its_hub_address.as_str()
+    {
+        return Err(ContractError::InvalidMessage.into());
+    }
+
+    // Payload needs to be correct, corresponding to the payload hash
+    if message.payload_hash.as_slice() != Keccak256::digest(&message_payload).as_slice() {
+        return Err(ContractError::InvalidPayload.into());
+    }
+
+    message.payload_hash = get_its_payload_hash(message_payload)?;
+
+    let payload = Payload::Messages(vec![message]);
     let payload_id = payload.id();
 
     match PAYLOAD
@@ -559,6 +650,7 @@ mod tests {
             encoder: crate::encoding::Encoder::Abi,
             key_type: multisig::key::KeyType::Ecdsa,
             domain_separator: [0; 32],
+            its_hub_address: Addr::unchecked("doesn't matter"),
         }
     }
 }

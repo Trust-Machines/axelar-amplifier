@@ -55,6 +55,15 @@ pub struct InstantiateMsg {
     #[serde(with = "axelar_wasm_std::hex")] // (de)serialization with hex module
     #[schemars(with = "String")] // necessary attribute in conjunction with #[serde(with ...)]
     pub domain_separator: Hash,
+
+    /// Address of the ITS Hub contract
+    pub its_hub_address: String,
+}
+
+#[cw_serde]
+pub struct MigrateMsg {
+    /// Address of the ITS Hub contract
+    pub its_hub_address: String,
 }
 
 #[cw_serde]
@@ -64,6 +73,11 @@ pub enum ExecuteMsg {
     // Queries the gateway for actual message contents
     #[permission(Any)]
     ConstructProof(Vec<CrossChainId>),
+    #[permission(Any)]
+    ConstructProofWithPayload {
+        message_id: CrossChainId,
+        payload: HexBinary,
+    },
     #[permission(Elevated)]
     UpdateVerifierSet,
 

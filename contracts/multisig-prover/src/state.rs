@@ -24,6 +24,7 @@ pub struct Config {
     pub encoder: Encoder,
     pub key_type: KeyType,
     pub domain_separator: Hash,
+    pub its_hub_address: Addr,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
