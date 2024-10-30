@@ -1,5 +1,7 @@
 #![allow(deprecated)]
 
+// TODO: This can probably be deleted
+
 use axelar_wasm_std::error::ContractError;
 use axelar_wasm_std::hash::Hash;
 use axelar_wasm_std::{address, MajorityThreshold};
@@ -19,7 +21,14 @@ pub fn migrate(
     api: &dyn Api,
     its_hub_address: String,
 ) -> Result<(), ContractError> {
-    cw2::assert_contract_version(storage, CONTRACT_NAME, BASE_VERSION)?;
+    let should_do_migration = cw2::assert_contract_version(storage, CONTRACT_NAME, BASE_VERSION);
+
+    // Skip migration if it is already done
+    if should_do_migration.is_err() {
+        cw2::assert_contract_version(storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        return Ok(());
+    }
 
     let config = CONFIG.load(storage)?;
     CONFIG.remove(storage);
