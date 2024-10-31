@@ -10,6 +10,10 @@ pub enum Event {
         multisig_session_id: Uint64,
         msg_ids: Vec<CrossChainId>,
     },
+    ItsHubClarityPayload {
+        payload: Vec<u8>,
+        payload_hash: [u8; 32],
+    },
 }
 
 impl From<Event> for cosmwasm_std::Event {
@@ -41,14 +45,30 @@ impl From<Event> for cosmwasm_std::Event {
                     serde_json::to_string(&msg_ids)
                         .expect("violated invariant: message_ids is not serializable"),
                 ),
+            Event::ItsHubClarityPayload {
+                payload,
+                payload_hash,
+            } => cosmwasm_std::Event::new("its_hub_clarity_payload")
+                .add_attribute(
+                    "payload",
+                    serde_json::to_string(&payload)
+                        .expect("violated invariant: payload is not serializable"),
+                )
+                .add_attribute(
+                    "payload_hash",
+                    serde_json::to_string(&payload_hash)
+                        .expect("violated invariant: payload_hash is not serializable"),
+                ),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use cosmwasm_std::HexBinary;
     use router_api::Message;
     use serde_json::to_string;
+    use sha3::{Digest, Keccak256};
 
     use super::*;
     use crate::payload::Payload;
@@ -77,6 +97,20 @@ mod tests {
             payload_id: payload.id(),
             multisig_session_id: Uint64::new(2),
             msg_ids: payload.message_ids().unwrap(),
+        };
+
+        assert!(to_string(&cosmwasm_std::Event::from(event)).is_ok());
+    }
+
+    #[test]
+    fn its_hub_clarity_payload_is_serializable() {
+        let payload =
+            HexBinary::from_hex("0c0000000506706172616d7302000000420c00000002086f70657261746f72090d746f6b656e2d61646472657373061a555db886b8dda288a0a7695027c4d2656dacbc760e73616d706c652d7369702d3031300c736f757263652d636861696e0d0000000e6176616c616e6368652d66756a6908746f6b656e2d69640200000020dfbbd97a4e0c3ec2338d800be851dca6d08d4779398d4070d5cb18d2ebfe62d712746f6b656e2d6d616e616765722d74797065010000000000000000000000000000000204747970650100000000000000000000000000000002").unwrap();
+        let payload_hash: [u8; 32] = Keccak256::digest(payload.as_slice()).into();
+
+        let event = Event::ItsHubClarityPayload {
+            payload: payload.to_vec(),
+            payload_hash,
         };
 
         assert!(to_string(&cosmwasm_std::Event::from(event)).is_ok());

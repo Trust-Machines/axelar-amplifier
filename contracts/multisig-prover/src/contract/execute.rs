@@ -16,17 +16,18 @@ use router_api::{ChainName, CrossChainId, Message};
 use service_registry_api::WeightedVerifier;
 use sha3::{Digest, Keccak256};
 
-use crate::contract::its::get_its_payload_hash;
+use crate::contract::its::get_its_payload_and_hash;
 use crate::contract::START_MULTISIG_REPLY_ID;
 use crate::error::ContractError;
+use crate::events::Event;
 use crate::payload::Payload;
 use crate::state::{
     Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
 };
 
 // TODO: Change this back to "axelar"
-// const AXELAR_CHAIN_NAME: &str = "axelar";
-const AXELAR_CHAIN_NAME: &str = "axelarnet";
+// pub const AXELAR_CHAIN_NAME: &str = "axelar";
+pub const AXELAR_CHAIN_NAME: &str = "axelarnet";
 
 pub fn construct_proof(
     deps: DepsMut,
@@ -124,7 +125,9 @@ pub fn construct_proof_with_payload(
         return Err(ContractError::InvalidPayload.into());
     }
 
-    message.payload_hash = get_its_payload_hash(message_payload)?;
+    let (its_hub_clarity_payload, payload_hash) = get_its_payload_and_hash(message_payload)?;
+
+    message.payload_hash = payload_hash;
 
     let payload = Payload::Messages(vec![message]);
     let payload_id = payload.id();
@@ -170,7 +173,15 @@ pub fn construct_proof_with_payload(
     let wasm_msg =
         wasm_execute(config.multisig, &start_sig_msg, vec![]).map_err(ContractError::from)?;
 
-    Ok(Response::new().add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID)))
+    Ok(Response::new()
+        .add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID))
+        .add_event(
+            Event::ItsHubClarityPayload {
+                payload: its_hub_clarity_payload,
+                payload_hash,
+            }
+            .into(),
+        ))
 }
 
 fn messages(

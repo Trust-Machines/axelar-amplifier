@@ -1,14 +1,16 @@
 use axelar_wasm_std::{address, permission_control};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response};
+use cosmwasm_std::{
+    to_json_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
+};
 use error_stack::ResultExt;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
-mod execute;
+pub mod execute;
 mod its;
 mod migrations;
 mod query;
@@ -126,9 +128,9 @@ pub fn query(
 pub fn migrate(
     deps: DepsMut,
     _env: Env,
-    msg: MigrateMsg,
+    _msg: Empty,
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
-    migrations::v1_0_1::migrate(deps.storage, deps.api, msg.its_hub_address)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::default())
 }
@@ -150,7 +152,7 @@ mod tests {
     use router_api::CrossChainId;
 
     use super::*;
-    use crate::contract::execute::should_update_verifier_set;
+    use crate::contract::execute::{should_update_verifier_set, AXELAR_CHAIN_NAME};
     use crate::encoding::Encoder;
     use crate::msg::{ProofResponse, ProofStatus, VerifierSetResponse};
     use crate::test::test_data::{self, TestOperator};
@@ -734,7 +736,7 @@ mod tests {
         let res = execute_construct_proof(
             deps.as_mut(),
             Some(vec![CrossChainId::new(
-                "axelar",
+                AXELAR_CHAIN_NAME,
                 "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
             )
             .unwrap()]),
@@ -788,7 +790,7 @@ mod tests {
         execute_construct_proof_with_payload(
             deps.as_mut(),
             CrossChainId::new(
-                "axelar",
+                AXELAR_CHAIN_NAME,
                 "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
             )
             .unwrap(),
@@ -808,7 +810,7 @@ mod tests {
         execute_construct_proof_with_payload(
             deps.as_mut(),
             CrossChainId::new(
-                "axelar",
+                AXELAR_CHAIN_NAME,
                 "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
             )
             .unwrap(),
@@ -860,7 +862,7 @@ mod tests {
         let res = execute_construct_proof_with_payload(
             deps.as_mut(),
             CrossChainId::new(
-                "axelar",
+                AXELAR_CHAIN_NAME,
                 "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
             )
             .unwrap(),
@@ -883,7 +885,7 @@ mod tests {
         let res = execute_construct_proof_with_payload(
             deps.as_mut(),
             CrossChainId::new(
-                "axelar",
+                AXELAR_CHAIN_NAME,
                 "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
             )
             .unwrap(),

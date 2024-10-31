@@ -61,12 +61,6 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
-pub struct MigrateMsg {
-    /// Address of the ITS Hub contract
-    pub its_hub_address: String,
-}
-
-#[cw_serde]
 #[derive(EnsurePermissions)]
 pub enum ExecuteMsg {
     // Start building a proof that includes specified messages
