@@ -38,13 +38,13 @@ pub fn get_its_payload_and_hash(
             source_chain,
             message,
         } => match message {
-            its::Message::InterchainTransfer {
+            its::Message::InterchainTransfer(its::InterchainTransfer {
                 token_id,
                 source_address,
                 destination_address,
                 amount,
                 data,
-            } => get_its_interchain_transfer_payload(
+            }) => get_its_interchain_transfer_payload(
                 source_chain,
                 token_id,
                 source_address.into(),
@@ -52,13 +52,13 @@ pub fn get_its_payload_and_hash(
                 amount,
                 data,
             ),
-            its::Message::DeployInterchainToken {
+            its::Message::DeployInterchainToken(its::DeployInterchainToken {
                 token_id,
                 name,
                 symbol,
                 decimals,
                 minter,
-            } => get_its_deploy_interchain_token_payload(
+            }) => get_its_deploy_interchain_token_payload(
                 source_chain,
                 token_id,
                 name.into(),
@@ -66,11 +66,11 @@ pub fn get_its_payload_and_hash(
                 decimals,
                 minter,
             ),
-            its::Message::DeployTokenManager {
+            its::Message::DeployTokenManager(its::DeployTokenManager {
                 token_id,
                 token_manager_type,
                 params,
-            } => get_its_deploy_token_manager_payload(
+            }) => get_its_deploy_token_manager_payload(
                 source_chain,
                 token_id,
                 token_manager_type,
@@ -244,11 +244,11 @@ mod tests {
 
         let message_payload = its::HubMessage::SendToHub {
             destination_chain: ChainNameRaw::from_str("chain").unwrap(),
-            message: its::Message::DeployTokenManager {
+            message: its::Message::DeployTokenManager(its::DeployTokenManager {
                 token_id: TokenId::new(token_id),
                 token_manager_type: TokenManagerType::NativeInterchainToken,
                 params: HexBinary::from_hex("00").unwrap().try_into().unwrap(),
-            },
+            }),
         }
         .abi_encode();
 
