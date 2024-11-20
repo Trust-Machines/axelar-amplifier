@@ -25,9 +25,7 @@ use crate::state::{
     Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
 };
 
-// TODO: Change this back to "axelar"
-// pub const AXELAR_CHAIN_NAME: &str = "axelar";
-pub const AXELAR_CHAIN_NAME: &str = "axelarnet";
+pub const AXELAR_CHAIN_NAME: &str = "axelar";
 
 pub fn construct_proof(
     deps: DepsMut,

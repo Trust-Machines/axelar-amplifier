@@ -13,20 +13,7 @@ use crate::error::ContractError;
 
 const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
 const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
-// const MESSAGE_TYPE_DEPLOY_TOKEN_MANAGER: u128 = 2;
 
-// fn token_manager_type_to_u128(token_manager_type: TokenManagerType) -> u128 {
-//     match token_manager_type {
-//         TokenManagerType::NativeInterchainToken => 0,
-//         TokenManagerType::MintBurnFrom => 1,
-//         TokenManagerType::LockUnlock => 2,
-//         TokenManagerType::LockUnlockFee => 3,
-//         TokenManagerType::MintBurn => 4,
-//         TokenManagerType::Gateway => 5,
-//     }
-// }
-
-// TODO: Add events here that contain the payload as well
 pub fn get_its_payload_and_hash(
     message_payload: HexBinary,
 ) -> Result<(Vec<u8>, [u8; 32]), ContractError> {
@@ -66,17 +53,6 @@ pub fn get_its_payload_and_hash(
                 decimals,
                 minter,
             ),
-            // TODO: Will this be re-added in the future?
-            // its::Message::DeployTokenManager(its::DeployTokenManager {
-            //     token_id,
-            //     token_manager_type,
-            //     params,
-            // }) => get_its_deploy_token_manager_payload(
-            //     source_chain,
-            //     token_id,
-            //     token_manager_type,
-            //     params.into(),
-            // ),
         },
     }?;
 
@@ -95,7 +71,6 @@ fn get_its_interchain_transfer_payload(
 ) -> Result<Vec<u8>, ContractError> {
     let token_id: [u8; 32] = token_id.into();
 
-    // TODO: Should we handle this in another way?
     if amount > Uint256::try_from(Uint128::MAX).map_err(|_| ContractError::InvalidAmount)? {
         return Err(ContractError::InvalidAmount);
     }
@@ -191,41 +166,6 @@ fn get_its_deploy_interchain_token_payload(
     Ok(Value::from(tuple_data).serialize_to_vec())
 }
 
-// fn get_its_deploy_token_manager_payload(
-//     source_chain: ChainNameRaw,
-//     token_id: TokenId,
-//     token_manager_type: TokenManagerType,
-//     params: HexBinary,
-// ) -> Result<Vec<u8>, ContractError> {
-//     let token_id: [u8; 32] = token_id.into();
-//
-//     let tuple_data = TupleData::from_data(vec![
-//         (
-//             ClarityName::from("source-chain"),
-//             Value::string_ascii_from_bytes(source_chain.to_string().into_bytes())
-//                 .map_err(|_| ContractError::InvalidMessage)?,
-//         ),
-//         (
-//             ClarityName::from("type"),
-//             Value::UInt(MESSAGE_TYPE_DEPLOY_TOKEN_MANAGER),
-//         ),
-//         (
-//             ClarityName::from("token-id"),
-//             Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
-//         ),
-//         (
-//             ClarityName::from("token-manager-type"),
-//             Value::UInt(token_manager_type_to_u128(token_manager_type)),
-//         ),
-//         (
-//             ClarityName::from("params"),
-//             Value::buff_from(params.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
-//         ),
-//     ])?;
-//
-//     Ok(Value::from(tuple_data).serialize_to_vec())
-// }
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -291,18 +231,4 @@ mod tests {
                 .unwrap()
         );
     }
-
-    // #[test]
-    // fn test_get_its_payload_hash_deploy_token_manager_payload() {
-    //     let message_payload =
-    //         HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000002dfbbd97a4e0c3ec2338d800be851dca6d08d4779398d4070d5cb18d2ebfe62d70000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000420c00000002086f70657261746f72090d746f6b656e2d61646472657373061a555db886b8dda288a0a7695027c4d2656dacbc760e73616d706c652d7369702d303130000000000000000000000000000000000000000000000000000000000000").unwrap();
-    //
-    //     let (_, payload_hash) = get_its_payload_and_hash(message_payload).unwrap();
-    //
-    //     assert_eq!(
-    //         payload_hash,
-    //         HexBinary::from_hex("84ee196a98d6bb6201f9518e8023c813bb214941e1bb83e8fb97783aef0adc88")
-    //             .unwrap()
-    //     );
-    // }
 }
