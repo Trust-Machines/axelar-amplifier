@@ -20,6 +20,7 @@ pub const START_MULTISIG_REPLY_ID: u64 = 1;
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const BASE_VERSION: &str = "1.1.0";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -130,6 +131,8 @@ pub fn migrate(
     _env: Env,
     _msg: Empty,
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
+    cw2::assert_contract_version(deps.storage, CONTRACT_NAME, BASE_VERSION)?;
+
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::default())
@@ -346,6 +349,17 @@ mod tests {
         deps: Deps,
     ) -> Result<Option<VerifierSetResponse>, axelar_wasm_std::error::ContractError> {
         query(deps, mock_env(), QueryMsg::CurrentVerifierSet {}).map(|res| from_json(res).unwrap())
+    }
+
+    #[test]
+    fn migrate_sets_contract_version() {
+        let mut deps = setup_test_case();
+
+        migrate(deps.as_mut(), mock_env(), Empty {}).unwrap();
+
+        let contract_version = cw2::get_contract_version(deps.as_mut().storage).unwrap();
+        assert_eq!(contract_version.contract, CONTRACT_NAME);
+        assert_eq!(contract_version.version, CONTRACT_VERSION);
     }
 
     #[test]
