@@ -98,4 +98,13 @@ pub enum ContractError {
     // an error when loading data that should always load successfully.
     #[error("storage error")]
     StorageError,
+
+    #[error("messages are invalid")]
+    InvalidMessages,
+
+    #[error("payload is invalid")]
+    InvalidPayload,
+
+    #[error("amount is too large for Stacks")]
+    InvalidAmount,
 }
