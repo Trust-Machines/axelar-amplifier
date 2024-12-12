@@ -1,5 +1,5 @@
 use axelar_wasm_std::{FnExt, VerificationStatus};
-use cosmwasm_std::{CosmosMsg, Event, Response, Storage};
+use cosmwasm_std::{CosmosMsg, Event, HexBinary, Response, Storage};
 use error_stack::{Result, ResultExt};
 use itertools::Itertools;
 use router_api::client::Router;
@@ -17,6 +17,23 @@ pub fn verify_messages(
     apply(verifier, msgs, |msgs_by_status| {
         verify(verifier, msgs_by_status)
     })
+}
+
+pub fn verify_message_with_payload(
+    verifier: &voting_verifier::Client,
+    message: Message,
+    message_payload: HexBinary,
+) -> Result<Response, Error> {
+    let message_status = verifier
+        .messages_status(vec![message])
+        .change_context(Error::MessageStatus)?
+        .remove(0);
+
+    let (cosm_message, events) = verify_with_payload(verifier, message_status, message_payload);
+
+    Ok(Response::new()
+        .add_messages(cosm_message)
+        .add_events(events))
 }
 
 pub fn route_incoming_messages(
@@ -103,6 +120,30 @@ fn verify(
         })
         .then(flat_unzip)
         .then(|(msgs, events)| (verifier.verify_messages(msgs), events))
+}
+
+fn verify_with_payload(
+    verifier: &voting_verifier::Client,
+    message_status: MessageStatus,
+    message_payload: HexBinary,
+) -> (Option<CosmosMsg>, Vec<Event>) {
+    let status = message_status.status;
+    let message = message_status.message;
+
+    let messages = vec![message.clone()];
+
+    let verifiable_messages =
+        filter_verifiable_messages(status, &messages);
+    let events = into_verify_events(status, messages);
+
+    if verifiable_messages.is_empty() {
+        return (None, events);
+    }
+
+    (
+        Some(verifier.verify_message_with_payload(message, message_payload)),
+        events,
+    )
 }
 
 fn route(

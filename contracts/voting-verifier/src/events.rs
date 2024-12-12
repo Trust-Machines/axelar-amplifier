@@ -29,6 +29,7 @@ impl From<Config> for Vec<Attribute> {
             rewards_contract,
             msg_id_format,
             address_format,
+            its_hub_address,
         } = other;
 
         vec![
@@ -54,6 +55,11 @@ impl From<Config> for Vec<Attribute> {
             (
                 "address_format",
                 serde_json::to_string(&address_format).expect("failed to serialize address_format"),
+            ),
+            (
+                "its_hub_address",
+                serde_json::to_string(&its_hub_address)
+                    .expect("failed to serialize address_format"),
             ),
         ]
         .into_iter()

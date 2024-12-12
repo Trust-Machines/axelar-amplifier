@@ -5,14 +5,15 @@ use axelar_wasm_std::utils::TryMapExt;
 use axelar_wasm_std::voting::{PollId, PollResults, Vote, WeightedPoll};
 use axelar_wasm_std::{nonempty, snapshot, MajorityThreshold, VerificationStatus};
 use cosmwasm_std::{
-    to_json_binary, Deps, DepsMut, Env, Event, MessageInfo, OverflowError, OverflowOperation,
-    Response, Storage, WasmMsg,
+    to_json_binary, Deps, DepsMut, Env, Event, HexBinary, MessageInfo, OverflowError,
+    OverflowOperation, Response, Storage, WasmMsg,
 };
 use error_stack::{report, Report, Result, ResultExt};
 use itertools::Itertools;
 use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, Message};
 use service_registry::WeightedVerifier;
+use sha3::{Digest, Keccak256};
 
 use crate::contract::query::{message_status, verifier_set_status};
 use crate::error::ContractError;
@@ -23,6 +24,8 @@ use crate::events::{
 use crate::state::{
     self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
 };
+
+pub const AXELAR_CHAIN_NAME: &str = "axelar";
 
 pub fn update_voting_threshold(
     deps: DepsMut,
@@ -119,6 +122,14 @@ pub fn verify_messages(
 
     let config = CONFIG.load(deps.storage).expect("failed to load config");
 
+    // Error in case we have messages to ITS Hub
+    if let Some(_) = messages.iter().find(|msg| {
+        msg.destination_chain == AXELAR_CHAIN_NAME
+            && msg.destination_address.as_str() == config.its_hub_address.as_str()
+    }) {
+        return Err(ContractError::InvalidMessages.into());
+    }
+
     let messages = messages.try_map(|message| {
         validate_source_chain(message, &config.source_chain)
             .and_then(|message| validate_source_address(message, &config.address_format))
@@ -171,6 +182,89 @@ pub fn verify_messages(
     Ok(Response::new().add_event(
         PollStarted::Messages {
             messages,
+            metadata: PollMetadata {
+                poll_id: id,
+                source_chain: config.source_chain,
+                source_gateway_address: config.source_gateway_address,
+                confirmation_height: config.confirmation_height,
+                expires_at,
+                participants,
+            },
+        }
+        .into(),
+    ))
+}
+
+pub fn verify_message_with_payload(
+    deps: DepsMut,
+    env: Env,
+    message: Message,
+    message_payload: HexBinary,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage).expect("failed to load config");
+
+    // Message needs to be to ITS Hub
+    if message.destination_chain.as_ref() != AXELAR_CHAIN_NAME
+        || message.destination_address.as_str() != config.its_hub_address.as_str()
+    {
+        return Err(ContractError::InvalidMessage.into());
+    }
+
+    // Payload needs to be correct, corresponding to the payload hash
+    if message.payload_hash.as_slice() != Keccak256::digest(&message_payload).as_slice() {
+        return Err(ContractError::InvalidPayload.into());
+    }
+
+    let message = validate_source_chain(message, &config.source_chain)
+        .and_then(|message| validate_source_address(message, &config.address_format))
+        .and_then(|message| {
+            message_status(deps.as_ref(), &message, env.block.height)
+                .map(|status| (status, message))
+        })?;
+
+    let msg_to_verify = match message.0 {
+        VerificationStatus::NotFoundOnSourceChain
+        | VerificationStatus::FailedToVerify
+        | VerificationStatus::Unknown => Some(message.1),
+        VerificationStatus::InProgress
+        | VerificationStatus::SucceededOnSourceChain
+        | VerificationStatus::FailedOnSourceChain => None,
+    };
+
+    if msg_to_verify.is_none() {
+        return Ok(Response::new());
+    }
+
+    let message = msg_to_verify.unwrap();
+
+    let snapshot = take_snapshot(deps.as_ref(), &config.source_chain)?;
+    let participants = snapshot.participants();
+    let expires_at = calculate_expiration(env.block.height, config.block_expiry.into())?;
+
+    let id = create_messages_poll(deps.storage, expires_at, snapshot, 1)?;
+
+    poll_messages()
+        .save(
+            deps.storage,
+            &message.hash(),
+            &state::PollContent::<Message>::new(message.clone(), id, 0),
+        )
+        .change_context(ContractError::StorageError)?;
+
+    let mut messages =
+            TxEventConfirmation::try_from((message.clone(), &config.msg_id_format))
+                .map_err(|err| report!(err))?;
+
+    // let (its_hub_clarity_payload, payload_hash) = get_its_payload_and_hash(message_payload)?;
+    //
+    // message.payload_hash = payload_hash;
+
+    // TODO: Adapt payload hash before constructing this event
+    // messages.payload_hash = "";
+
+    Ok(Response::new().add_event(
+        PollStarted::Messages {
+            messages: vec![messages],
             metadata: PollMetadata {
                 poll_id: id,
                 source_chain: config.source_chain,

@@ -12,6 +12,7 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
 mod execute;
+mod its;
 mod migrations;
 mod query;
 
@@ -48,6 +49,7 @@ pub fn instantiate(
         rewards_contract: address::validate_cosmwasm_address(deps.api, &msg.rewards_address)?,
         msg_id_format: msg.msg_id_format,
         address_format: msg.address_format,
+        its_hub_address: address::validate_cosmwasm_address(deps.api, &msg.its_hub_address)?,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -64,6 +66,9 @@ pub fn execute(
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
     match msg.ensure_permissions(deps.storage, &info.sender)? {
         ExecuteMsg::VerifyMessages(messages) => Ok(execute::verify_messages(deps, env, messages)?),
+        ExecuteMsg::VerifyMessageWithPayload { message, payload } => Ok(
+            execute::verify_message_with_payload(deps, env, message, payload)?,
+        ),
         ExecuteMsg::Vote { poll_id, votes } => Ok(execute::vote(deps, env, info, poll_id, votes)?),
         ExecuteMsg::EndPoll { poll_id } => Ok(execute::end_poll(deps, env, poll_id)?),
         ExecuteMsg::VerifyVerifierSet {
@@ -127,6 +132,10 @@ pub fn migrate(
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::error::ContractError;
+    use crate::events::TxEventConfirmation;
+    use crate::msg::MessageStatus;
     use assert_ok::assert_ok;
     use axelar_wasm_std::address::AddressFormat;
     use axelar_wasm_std::msg_id::{
@@ -141,7 +150,9 @@ mod test {
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{from_json, Addr, Empty, Fraction, OwnedDeps, Uint128, Uint64, WasmQuery};
+    use cosmwasm_std::{
+        from_json, Addr, Empty, Fraction, HexBinary, OwnedDeps, Uint128, Uint64, WasmQuery,
+    };
     use multisig::key::KeyType;
     use multisig::test::common::{build_verifier_set, ecdsa_test_data};
     use router_api::{ChainName, CrossChainId, Message};
@@ -149,11 +160,6 @@ mod test {
         AuthorizationState, BondingState, Verifier, WeightedVerifier, VERIFIER_WEIGHT,
     };
     use sha3::{Digest, Keccak256, Keccak512};
-
-    use super::*;
-    use crate::error::ContractError;
-    use crate::events::TxEventConfirmation;
-    use crate::msg::MessageStatus;
 
     const SENDER: &str = "sender";
     const SERVICE_REGISTRY_ADDRESS: &str = "service_registry_address";
@@ -216,6 +222,8 @@ mod test {
                 rewards_address: REWARDS_ADDRESS.parse().unwrap(),
                 msg_id_format: msg_id_format.clone(),
                 address_format: AddressFormat::Eip55,
+                its_hub_address:
+                    "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp".to_string(),
             },
         )
         .unwrap();
@@ -265,6 +273,8 @@ mod test {
                 rewards_address: REWARDS_ADDRESS.parse().unwrap(),
                 msg_id_format: msg_id_format.clone(),
                 address_format: AddressFormat::Stacks,
+                its_hub_address:
+                    "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp".to_string(),
             },
         )
         .unwrap();
@@ -432,6 +442,9 @@ mod test {
                     rewards_address: REWARDS_ADDRESS.parse().unwrap(),
                     msg_id_format: MessageIdFormat::HexTxHashAndEventIndex,
                     address_format,
+                    its_hub_address:
+                        "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                            .to_string(),
                 },
             );
 
@@ -479,6 +492,36 @@ mod test {
     }
 
     #[test]
+    fn should_fail_if_messages_are_not_from_same_source_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let msg = ExecuteMsg::VerifyMessageWithPayload {
+            message: Message {
+                cc_id: CrossChainId::new(source_chain(), message_id("id", 1, &msg_id_format))
+                    .unwrap(),
+                source_address: "source-address2".parse().unwrap(),
+                destination_chain: "axelar".parse().unwrap(),
+                destination_address:
+                    "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                        .parse()
+                        .unwrap(),
+                payload_hash: HexBinary::from_hex(
+                    "bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a",
+                )
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap(),
+            },
+            payload: HexBinary::from_hex("00").unwrap(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg);
+        assert_err_contains!(err, ContractError, ContractError::InvalidSourceAddress);
+    }
+
+    #[test]
     fn should_fail_if_messages_have_invalid_msg_id() {
         let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
         let verifiers = verifiers(2);
@@ -488,6 +531,38 @@ mod test {
         messages[0].cc_id = CrossChainId::new(source_chain(), "foobar").unwrap();
 
         let msg = ExecuteMsg::VerifyMessages(messages);
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
+        assert_contract_err_strings_equal(
+            err,
+            ContractError::InvalidMessageID("foobar".to_string()),
+        );
+    }
+
+    #[test]
+    fn should_fail_if_messages_have_invalid_msg_id_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let mut messages = messages(1, &MessageIdFormat::HexTxHashAndEventIndex);
+        messages[0].cc_id = CrossChainId::new(source_chain(), "foobar").unwrap();
+        messages[0].destination_chain = "axelar".parse().unwrap();
+        messages[0].destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        messages[0].payload_hash =
+            HexBinary::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let msg = ExecuteMsg::VerifyMessageWithPayload {
+            message: messages.remove(0),
+            payload: HexBinary::from_hex("00").unwrap(),
+        };
 
         let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
         assert_contract_err_strings_equal(
@@ -513,6 +588,39 @@ mod test {
     }
 
     #[test]
+    fn should_fail_if_messages_have_base58_msg_id_but_contract_expects_hex_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let mut messages = messages(1, &MessageIdFormat::Base58TxDigestAndEventIndex);
+        messages[0].destination_chain = "axelar".parse().unwrap();
+        messages[0].destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        messages[0].payload_hash =
+            HexBinary::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let message = messages.remove(0);
+
+        let msg = ExecuteMsg::VerifyMessageWithPayload {
+            message: message.clone(),
+            payload: HexBinary::from_hex("00").unwrap(),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
+        assert_contract_err_strings_equal(
+            err,
+            ContractError::InvalidMessageID(message.cc_id.message_id.to_string()),
+        );
+    }
+
+    #[test]
     fn should_fail_if_messages_have_hex_msg_id_but_contract_expects_base58() {
         let msg_id_format = MessageIdFormat::Base58TxDigestAndEventIndex;
         let verifiers = verifiers(2);
@@ -525,6 +633,39 @@ mod test {
         assert_contract_err_strings_equal(
             err,
             ContractError::InvalidMessageID(messages[0].cc_id.message_id.to_string()),
+        );
+    }
+
+    #[test]
+    fn should_fail_if_messages_have_hex_msg_id_but_contract_expects_base58_with_payload() {
+        let msg_id_format = MessageIdFormat::Base58TxDigestAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let mut messages = messages(1, &MessageIdFormat::HexTxHashAndEventIndex);
+        messages[0].destination_chain = "axelar".parse().unwrap();
+        messages[0].destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        messages[0].payload_hash =
+            HexBinary::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let message = messages.remove(0);
+
+        let msg = ExecuteMsg::VerifyMessageWithPayload {
+            message: message.clone(),
+            payload: HexBinary::from_hex("00").unwrap(),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
+        assert_contract_err_strings_equal(
+            err,
+            ContractError::InvalidMessageID(message.cc_id.message_id.to_string()),
         );
     }
 
@@ -587,6 +728,109 @@ mod test {
             .collect::<Vec<_>>();
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn should_not_verify_messages_if_in_progress_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+        let mut messages = messages(1, &msg_id_format);
+        messages[0].destination_chain = "axelar".parse().unwrap();
+        messages[0].destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        messages[0].payload_hash =
+            HexBinary::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let message = messages.remove(0);
+
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(SENDER, &[]),
+            ExecuteMsg::VerifyMessageWithPayload {
+                message: message.clone(),
+                payload: HexBinary::from_hex("00").unwrap(),
+            },
+        )
+        .unwrap();
+
+        let events = &res.events
+            .into_iter()
+            .find(|event| event.ty == "messages_poll_started");
+
+        // First time we try to verify message
+        assert!(events.is_some());
+
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(SENDER, &[]),
+            ExecuteMsg::VerifyMessageWithPayload {
+                message: message.clone(),
+                payload: HexBinary::from_hex("00").unwrap(),
+            },
+        )
+            .unwrap();
+
+        let events = &res.events
+            .into_iter()
+            .find(|event| event.ty == "messages_poll_started");
+
+        // If in progress don't verify again
+        assert!(events.is_none());
+    }
+
+    #[test]
+    fn should_not_verify_messages_if_its_hub_message() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup_stacks(verifiers.clone(), &msg_id_format);
+        let mut messages = messages(1, &msg_id_format);
+        let message = messages.get_mut(0).unwrap();
+
+        // Change message to be to ITS Hub
+        message.destination_chain = "axelar".parse().unwrap();
+        message.destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+
+        let msg = ExecuteMsg::VerifyMessages(messages.clone());
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
+        assert_contract_err_strings_equal(err, ContractError::InvalidMessages);
+    }
+
+    #[test]
+    fn should_not_verify_message_with_payload_if_not_its_hub_message() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let mut messages = messages(1, &MessageIdFormat::Base58TxDigestAndEventIndex);
+        messages[0].payload_hash =
+            HexBinary::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let message = messages.remove(0);
+
+        let msg = ExecuteMsg::VerifyMessageWithPayload {
+            message: message.clone(),
+            payload: HexBinary::from_hex("00").unwrap(),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
+        assert_contract_err_strings_equal(err, ContractError::InvalidMessage);
     }
 
     #[test]
