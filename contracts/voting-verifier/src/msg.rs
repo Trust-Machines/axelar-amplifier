@@ -39,6 +39,11 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
+pub struct MigrationMsg {
+    pub its_hub_address: String,
+}
+
+#[cw_serde]
 #[derive(EnsurePermissions)]
 pub enum ExecuteMsg {
     // Computes the results of a poll
