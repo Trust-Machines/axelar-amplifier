@@ -3,6 +3,7 @@ use axelar_wasm_std::msg_id::MessageIdFormat;
 use axelar_wasm_std::voting::{PollId, PollStatus, Vote, WeightedPoll};
 use axelar_wasm_std::{nonempty, MajorityThreshold, VerificationStatus};
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::HexBinary;
 use msgs_derive::EnsurePermissions;
 use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, Message};
@@ -32,6 +33,14 @@ pub struct InstantiateMsg {
     /// Format that incoming messages should use for the id field of CrossChainId
     pub msg_id_format: MessageIdFormat,
     pub address_format: AddressFormat,
+
+    /// Address of the ITS Hub contract
+    pub its_hub_address: String,
+}
+
+#[cw_serde]
+pub struct MigrationMsg {
+    pub its_hub_address: String,
 }
 
 #[cw_serde]
@@ -51,6 +60,12 @@ pub enum ExecuteMsg {
     #[permission(Any)]
     VerifyMessages(Vec<Message>),
 
+    #[permission(Any)]
+    VerifyMessageWithPayload {
+        message: Message,
+        payload: HexBinary,
+    },
+
     // Starts a poll to confirm a verifier set update on the external gateway
     #[permission(Any)]
     VerifyVerifierSet {
@@ -62,6 +77,11 @@ pub enum ExecuteMsg {
     #[permission(Governance)]
     UpdateVotingThreshold {
         new_voting_threshold: MajorityThreshold,
+    },
+
+    #[permission(Governance)]
+    UpdateSourceGatewayAddress {
+        new_source_gateway_address: nonempty::String,
     },
 }
 

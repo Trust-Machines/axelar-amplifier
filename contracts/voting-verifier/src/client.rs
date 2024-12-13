@@ -1,7 +1,7 @@
 use axelar_wasm_std::vec::VecExt;
 use axelar_wasm_std::voting::{PollId, Vote};
 use axelar_wasm_std::{nonempty, MajorityThreshold, VerificationStatus};
-use cosmwasm_std::CosmosMsg;
+use cosmwasm_std::{CosmosMsg, HexBinary};
 use error_stack::ResultExt;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
@@ -48,6 +48,11 @@ impl<'a> Client<'a> {
         messages
             .to_none_if_empty()
             .map(|messages| self.client.execute(&ExecuteMsg::VerifyMessages(messages)))
+    }
+
+    pub fn verify_message_with_payload(&self, message: Message, payload: HexBinary) -> CosmosMsg {
+        self.client
+            .execute(&ExecuteMsg::VerifyMessageWithPayload { message, payload })
     }
 
     pub fn vote(&self, poll_id: PollId, votes: Vec<Vote>) -> CosmosMsg {
@@ -317,6 +322,8 @@ mod test {
             rewards_address: "rewards".try_into().unwrap(),
             msg_id_format: axelar_wasm_std::msg_id::MessageIdFormat::HexTxHashAndEventIndex,
             address_format: axelar_wasm_std::address::AddressFormat::Eip55,
+            its_hub_address: "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .to_string(),
         };
 
         instantiate(deps, env, info.clone(), msg.clone()).unwrap();

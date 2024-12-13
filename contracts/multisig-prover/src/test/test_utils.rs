@@ -14,6 +14,7 @@ pub const MULTISIG_ADDRESS: &str = "multisig";
 pub const COORDINATOR_ADDRESS: &str = "coordinator";
 pub const SERVICE_REGISTRY_ADDRESS: &str = "service_registry";
 pub const VOTING_VERIFIER_ADDRESS: &str = "voting_verifier";
+pub const ITS_HUB_ADDRESS: &str = "its_hub";
 pub const ADMIN: &str = "admin";
 pub const GOVERNANCE: &str = "governance";
 pub const SERVICE_NAME: &str = "validators";
@@ -39,8 +40,33 @@ pub fn mock_querier_handler(
     }
 }
 
+pub fn mock_querier_handler_its_hub(
+    operators: Vec<TestOperator>,
+    verifier_set_status: VerificationStatus,
+) -> impl Fn(&WasmQuery) -> QuerierResult {
+    move |wq: &WasmQuery| match wq {
+        WasmQuery::Smart { contract_addr, .. } if contract_addr == GATEWAY_ADDRESS => {
+            gateway_mock_querier_handler_its_hub()
+        }
+        WasmQuery::Smart { contract_addr, msg } if contract_addr == MULTISIG_ADDRESS => {
+            multisig_mock_querier_handler(from_json(msg).unwrap(), operators.clone())
+        }
+        WasmQuery::Smart { contract_addr, msg } if contract_addr == SERVICE_REGISTRY_ADDRESS => {
+            service_registry_mock_querier_handler(from_json(msg).unwrap(), operators.clone())
+        }
+        WasmQuery::Smart { contract_addr, .. } if contract_addr == VOTING_VERIFIER_ADDRESS => {
+            voting_verifier_mock_querier_handler(verifier_set_status)
+        }
+        _ => panic!("unexpected query: {:?}", wq),
+    }
+}
+
 fn gateway_mock_querier_handler() -> QuerierResult {
     Ok(to_json_binary(&test_data::messages()).into()).into()
+}
+
+fn gateway_mock_querier_handler_its_hub() -> QuerierResult {
+    Ok(to_json_binary(&test_data::messages_its_hub()).into()).into()
 }
 
 fn multisig_mock_querier_handler(

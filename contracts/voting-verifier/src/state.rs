@@ -23,6 +23,7 @@ pub struct Config {
     pub rewards_contract: Addr,
     pub msg_id_format: MessageIdFormat,
     pub address_format: AddressFormat,
+    pub its_hub_address: Addr,
 }
 
 #[cw_serde]
