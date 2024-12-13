@@ -48,6 +48,7 @@ evm-gateway = { workspace = true }
 gateway = { workspace = true }
 gateway-api = { workspace = true }
 hex = { version = "0.4.3", default-features = false, features = [] }
+interchain-token-service = { workspace = true, features = ["library"] }
 itertools = "0.11.0"
 k256 = { workspace = true }
 msgs-derive = { workspace = true }
@@ -64,7 +65,6 @@ stellar-xdr = { workspace = true }
 sui-gateway = { workspace = true }
 thiserror = { workspace = true }
 voting-verifier = { workspace = true, features = ["library"] }
-interchain-token-service = { workspace = true, features = ["library"] }
 
 [dev-dependencies]
 anyhow = "1.0"

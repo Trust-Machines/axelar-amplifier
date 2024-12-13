@@ -132,8 +132,7 @@ fn verify_with_payload(
 
     let messages = vec![message.clone()];
 
-    let verifiable_messages =
-        filter_verifiable_messages(status, &messages);
+    let verifiable_messages = filter_verifiable_messages(status, &messages);
     let events = into_verify_events(status, messages);
 
     if verifiable_messages.is_empty() {

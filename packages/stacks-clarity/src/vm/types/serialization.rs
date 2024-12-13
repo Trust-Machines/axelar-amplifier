@@ -1,12 +1,15 @@
-use std::io::Write;
+use std::io::{Read, Write};
 
 use serde::{Deserialize, Serialize};
 
 use crate::common::codec::{Error as codec_error, StacksMessageCodec};
 use crate::define_u8_enum;
 use crate::vm::errors::IncomparableError;
-use crate::vm::representations::{ClarityName, ContractName};
-use crate::vm::types::{CallableData, OptionalData, PrincipalData, StandardPrincipalData, Value};
+use crate::vm::representations::{ClarityName, ContractName, MAX_STRING_LEN};
+use crate::vm::types::{
+    CallableData, OptionalData, PrincipalData, QualifiedContractIdentifier, StandardPrincipalData,
+    Value,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum SerializationError {
@@ -132,6 +135,30 @@ impl PrincipalData {
             }
         }
     }
+
+    pub fn inner_consensus_deserialize<R: Read>(
+        r: &mut R,
+    ) -> Result<PrincipalData, SerializationError> {
+        let mut header = [0];
+        r.read_exact(&mut header)?;
+
+        let prefix = TypePrefix::from_u8(header[0]).ok_or("Bad principal prefix")?;
+
+        match prefix {
+            TypePrefix::PrincipalStandard => {
+                StandardPrincipalData::deserialize_read(r).map(PrincipalData::from)
+            }
+            TypePrefix::PrincipalContract => {
+                let issuer = StandardPrincipalData::deserialize_read(r)?;
+                let name = ContractName::deserialize_read(r)?;
+                Ok(PrincipalData::from(QualifiedContractIdentifier {
+                    issuer,
+                    name,
+                }))
+            }
+            _ => Err("Bad principal prefix".into()),
+        }
+    }
 }
 
 impl StacksMessageCodec for PrincipalData {
@@ -145,10 +172,25 @@ trait ClarityValueSerializable<T: std::marker::Sized> {
     fn serialize_write<W: Write>(&self, w: &mut W) -> std::io::Result<()>;
 }
 
+// In the official library, this is part of ClarityValueSerializable, but we only need it form Decoding Principals
+trait ClarityValueDeserializable<T: std::marker::Sized> {
+    fn deserialize_read<R: Read>(r: &mut R) -> Result<T, SerializationError>;
+}
+
 impl ClarityValueSerializable<StandardPrincipalData> for StandardPrincipalData {
     fn serialize_write<W: Write>(&self, w: &mut W) -> std::io::Result<()> {
         w.write_all(&[self.0])?;
         w.write_all(&self.1)
+    }
+}
+
+impl ClarityValueDeserializable<StandardPrincipalData> for StandardPrincipalData {
+    fn deserialize_read<R: Read>(r: &mut R) -> Result<Self, SerializationError> {
+        let mut version = [0; 1];
+        let mut data = [0; 20];
+        r.read_exact(&mut version)?;
+        r.read_exact(&mut data)?;
+        Ok(StandardPrincipalData(version[0], data))
     }
 }
 
@@ -165,8 +207,35 @@ macro_rules! serialize_guarded_string {
     };
 }
 
+// In the official implementation, this is part of the serialize_guarded_string macro, but we only need it for decoding principal
+macro_rules! deserialize_guarded_string {
+    ($Name:ident) => {
+        impl ClarityValueDeserializable<$Name> for $Name {
+            fn deserialize_read<R: Read>(r: &mut R) -> Result<Self, SerializationError> {
+                let mut len = [0; 1];
+                r.read_exact(&mut len)?;
+                let len = u8::from_be_bytes(len);
+                if len > MAX_STRING_LEN {
+                    return Err(SerializationError::DeserializationError(
+                        "String too long".to_string(),
+                    ));
+                }
+
+                let mut data = vec![0; len as usize];
+                r.read_exact(&mut data)?;
+
+                String::from_utf8(data)
+                    .map_err(|_| "Non-UTF8 string data".into())
+                    .and_then(|x| $Name::try_from(x).map_err(|_| "Illegal Clarity string".into()))
+            }
+        }
+    };
+}
+
 serialize_guarded_string!(ClarityName);
 serialize_guarded_string!(ContractName);
+
+deserialize_guarded_string!(ContractName);
 
 impl Value {
     pub fn serialize_write<W: Write>(&self, w: &mut W) -> Result<(), SerializationError> {

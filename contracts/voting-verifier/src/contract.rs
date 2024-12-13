@@ -132,10 +132,6 @@ pub fn migrate(
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::error::ContractError;
-    use crate::events::TxEventConfirmation;
-    use crate::msg::MessageStatus;
     use assert_ok::assert_ok;
     use axelar_wasm_std::address::AddressFormat;
     use axelar_wasm_std::msg_id::{
@@ -160,6 +156,11 @@ mod test {
         AuthorizationState, BondingState, Verifier, WeightedVerifier, VERIFIER_WEIGHT,
     };
     use sha3::{Digest, Keccak256, Keccak512};
+
+    use super::*;
+    use crate::error::ContractError;
+    use crate::events::TxEventConfirmation;
+    use crate::msg::MessageStatus;
 
     const SENDER: &str = "sender";
     const SERVICE_REGISTRY_ADDRESS: &str = "service_registry_address";
@@ -735,20 +736,8 @@ mod test {
         let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
         let verifiers = verifiers(2);
         let mut deps = setup(verifiers.clone(), &msg_id_format);
-        let mut messages = messages(1, &msg_id_format);
-        messages[0].destination_chain = "axelar".parse().unwrap();
-        messages[0].destination_address =
-            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
-                .parse()
-                .unwrap();
-        messages[0].payload_hash =
-            HexBinary::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a")
-                .unwrap()
-                .as_slice()
-                .try_into()
-                .unwrap();
 
-        let message = messages.remove(0);
+        let (message, payload) = get_stacks_message_with_payload();
 
         let res = execute(
             deps.as_mut(),
@@ -756,12 +745,13 @@ mod test {
             mock_info(SENDER, &[]),
             ExecuteMsg::VerifyMessageWithPayload {
                 message: message.clone(),
-                payload: HexBinary::from_hex("00").unwrap(),
+                payload: payload.clone(),
             },
         )
         .unwrap();
 
-        let events = &res.events
+        let events = &res
+            .events
             .into_iter()
             .find(|event| event.ty == "messages_poll_started");
 
@@ -774,12 +764,13 @@ mod test {
             mock_info(SENDER, &[]),
             ExecuteMsg::VerifyMessageWithPayload {
                 message: message.clone(),
-                payload: HexBinary::from_hex("00").unwrap(),
+                payload: payload.clone(),
             },
         )
-            .unwrap();
+        .unwrap();
 
-        let events = &res.events
+        let events = &res
+            .events
             .into_iter()
             .find(|event| event.ty == "messages_poll_started");
 
@@ -831,6 +822,36 @@ mod test {
 
         let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
         assert_contract_err_strings_equal(err, ContractError::InvalidMessage);
+    }
+
+    #[test]
+    fn should_not_verify_message_with_payload_if_invalid_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let mut messages = messages(1, &MessageIdFormat::Base58TxDigestAndEventIndex);
+        messages[0].destination_chain = "axelar".parse().unwrap();
+        messages[0].destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        messages[0].payload_hash =
+            HexBinary::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let message = messages.remove(0);
+
+        let msg = ExecuteMsg::VerifyMessageWithPayload {
+            message: message.clone(),
+            payload: HexBinary::from_hex("AA").unwrap(),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
+        assert_contract_err_strings_equal(err, ContractError::InvalidPayload);
     }
 
     #[test]
@@ -901,6 +922,84 @@ mod test {
             .collect::<Vec<_>>();
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn should_retry_if_message_not_verified_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let (message, payload) = get_stacks_message_with_payload();
+
+        let msg = ExecuteMsg::VerifyMessageWithPayload {
+            message: message.clone(),
+            payload: payload.clone(),
+        };
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(SENDER, &[]),
+            msg.clone(),
+        )
+        .unwrap();
+
+        // confirm it was not verified
+        let status: Vec<MessageStatus> = from_json(
+            query(
+                deps.as_ref(),
+                mock_env_expired(),
+                QueryMsg::MessagesStatus(vec![message.clone()]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            status,
+            msgs_statuses(vec![message.clone()], VerificationStatus::FailedToVerify)
+        );
+
+        // retries same message
+        let res = execute(
+            deps.as_mut(),
+            mock_env_expired(),
+            mock_info(SENDER, &[]),
+            msg,
+        )
+        .unwrap();
+
+        let actual: Vec<TxEventConfirmation> = serde_json::from_str(
+            &res.events
+                .into_iter()
+                .find(|event| event.ty == "messages_poll_started")
+                .unwrap()
+                .attributes
+                .into_iter()
+                .find_map(|attribute| {
+                    if attribute.key == "messages" {
+                        Some(attribute.value)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap(),
+        )
+        .unwrap();
+
+        let mut new_message = message.clone();
+        new_message.payload_hash =
+            HexBinary::from_hex("ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        assert_eq!(
+            actual,
+            vec![(new_message, &MessageIdFormat::HexTxHashAndEventIndex)
+                .try_into()
+                .unwrap()]
+        );
     }
 
     #[test]
@@ -1024,6 +1123,110 @@ mod test {
     }
 
     #[test]
+    fn should_retry_if_status_not_final_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let (message, payload) = get_stacks_message_with_payload();
+
+        // 1. First verification
+
+        let msg_verify = ExecuteMsg::VerifyMessageWithPayload {
+            message: message.clone(),
+            payload: payload.clone(),
+        };
+
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(SENDER, &[]),
+            msg_verify.clone(),
+        );
+        assert!(res.is_ok());
+
+        // 2. Verifiers cast votes, but don't reach consensus
+
+        verifiers.iter().enumerate().for_each(|(i, verifier)| {
+            let msg = ExecuteMsg::Vote {
+                poll_id: 1u64.into(),
+                votes: vec![if i % 2 == 0 {
+                    // verifiers vote is divided so no consensus is reached
+                    Vote::SucceededOnChain
+                } else {
+                    Vote::FailedOnChain
+                }],
+            };
+
+            let res = execute(
+                deps.as_mut(),
+                mock_env(),
+                mock_info(verifier.address.as_str(), &[]),
+                msg,
+            );
+            assert!(res.is_ok());
+        });
+
+        // 3. Poll is ended. Message does not reach consensus
+
+        let msg = ExecuteMsg::EndPoll {
+            poll_id: 1u64.into(),
+        };
+
+        let res = execute(
+            deps.as_mut(),
+            mock_env_expired(),
+            mock_info(SENDER, &[]),
+            msg,
+        );
+        assert!(res.is_ok());
+
+        let res: Vec<MessageStatus> = from_json(
+            query(
+                deps.as_ref(),
+                mock_env_expired(),
+                QueryMsg::MessagesStatus(vec![message.clone()]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            vec![MessageStatus::new(
+                message.clone(),
+                VerificationStatus::FailedToVerify
+            )]
+        );
+
+        // 3. Retry verification.
+
+        let res = execute(
+            deps.as_mut(),
+            mock_env_expired(),
+            mock_info(SENDER, &[]),
+            msg_verify,
+        );
+        assert!(res.is_ok());
+
+        let res: Vec<MessageStatus> = from_json(
+            query(
+                deps.as_ref(),
+                mock_env_expired(),
+                QueryMsg::MessagesStatus(vec![message.clone()]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            vec![MessageStatus::new(
+                message.clone(),
+                VerificationStatus::InProgress
+            )]
+        );
+    }
+
+    #[test]
     fn should_query_status_none_when_not_verified() {
         let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
         let verifiers = verifiers(2);
@@ -1107,6 +1310,41 @@ mod test {
         assert_eq!(
             statuses,
             msgs_statuses(messages.clone(), VerificationStatus::FailedToVerify)
+        );
+    }
+
+    #[test]
+    fn should_query_status_failed_to_verify_when_no_consensus_and_poll_expired_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+
+        let (message, payload) = get_stacks_message_with_payload();
+
+        // starts verification process
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(SENDER, &[]),
+            ExecuteMsg::VerifyMessageWithPayload {
+                message: message.clone(),
+                payload: payload.clone(),
+            },
+        )
+        .unwrap();
+
+        let statuses: Vec<MessageStatus> = from_json(
+            query(
+                deps.as_ref(),
+                mock_env_expired(),
+                QueryMsg::MessagesStatus(vec![message.clone()]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            statuses,
+            msgs_statuses(vec![message.clone()], VerificationStatus::FailedToVerify)
         );
     }
 
@@ -1834,6 +2072,109 @@ mod test {
     }
 
     #[test]
+    fn should_emit_event_when_verification_succeeds_with_payload() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(3);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+        let threshold = initial_voting_threshold();
+        // this test depends on the threshold being 2/3
+        assert_eq!(
+            threshold,
+            Threshold::try_from((2, 3)).unwrap().try_into().unwrap()
+        );
+
+        let mut message = messages(1, &msg_id_format).remove(0);
+        message.destination_chain = "axelar".parse().unwrap();
+        message.destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        message.payload_hash =
+            HexBinary::from_hex("936bcd92277f38985ec35365524e9395713afa8df422c708854d3660d42a3903")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        // 1. First verification
+
+        let msg_verify = ExecuteMsg::VerifyMessageWithPayload {
+            message: message.clone(),
+            payload: HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000b60524f7374deae5624711575011ae6fdfbbf4073fec106f4ebe773da9c6104800000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000b71b0000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000016051ac4a739e6e70be056920e5195e7ed579182c862aa000000000000000000000000000000000000000000000000000000000000000000000000000000000014ab905ea4dc0b571c127e8b38f00cecd97f0855590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap(),
+        };
+
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(SENDER, &[]),
+            msg_verify.clone(),
+        );
+        assert!(res.is_ok());
+
+        // 2. Verifiers cast votes
+        // The message reaches quorum after 2 votes,
+        verifiers.iter().enumerate().for_each(|(i, verifier)| {
+            let msg = ExecuteMsg::Vote {
+                poll_id: 1u64.into(),
+                votes: vec![Vote::SucceededOnChain],
+            };
+
+            let res = execute(
+                deps.as_mut(),
+                mock_env(),
+                mock_info(verifier.address.as_str(), &[]),
+                msg,
+            )
+            .unwrap();
+
+            let verify_event =
+                |res: &Response, expected_message: Message, expected_status: VerificationStatus| {
+                    let mut iter = res.events.iter();
+
+                    let event = iter.find(|event| event.ty == "quorum_reached").unwrap();
+
+                    let msg: Message = serde_json::from_str(
+                        &event
+                            .attributes
+                            .iter()
+                            .find(|attr| attr.key == "content")
+                            .unwrap()
+                            .value,
+                    )
+                    .unwrap();
+                    assert_eq!(msg, expected_message);
+
+                    let status: VerificationStatus = serde_json::from_str(
+                        &event
+                            .attributes
+                            .iter()
+                            .find(|attr| attr.key == "status")
+                            .unwrap()
+                            .value,
+                    )
+                    .unwrap();
+                    assert_eq!(status, expected_status);
+
+                    let additional_event = iter.find(|event| event.ty == "quorum_reached");
+                    assert_eq!(additional_event, None);
+                };
+
+            if i == 0 {
+                let event = res.events.iter().find(|event| event.ty == "quorum_reached");
+                assert_eq!(event, None);
+            }
+
+            if i == 1 {
+                verify_event(
+                    &res,
+                    message.clone(),
+                    VerificationStatus::SucceededOnSourceChain,
+                );
+            }
+        });
+    }
+
+    #[test]
     fn should_fail_if_messages_have_invalid_source_address() {
         let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
         let verifiers = verifiers(2);
@@ -1876,5 +2217,90 @@ mod test {
         let msg = ExecuteMsg::VerifyMessages(messages);
         let res = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg);
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn should_verify_message_with_payload_event_has_different_payload_hash() {
+        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
+        let verifiers = verifiers(2);
+        let mut deps = setup(verifiers.clone(), &msg_id_format);
+        let mut messages = messages(1, &msg_id_format);
+        messages[0].destination_chain = "axelar".parse().unwrap();
+        messages[0].destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        messages[0].payload_hash =
+            HexBinary::from_hex("936bcd92277f38985ec35365524e9395713afa8df422c708854d3660d42a3903")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let message = messages.remove(0);
+
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(SENDER, &[]),
+            ExecuteMsg::VerifyMessageWithPayload {
+                message: message.clone(),
+                payload: HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000b60524f7374deae5624711575011ae6fdfbbf4073fec106f4ebe773da9c6104800000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000b71b0000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000016051ac4a739e6e70be056920e5195e7ed579182c862aa000000000000000000000000000000000000000000000000000000000000000000000000000000000014ab905ea4dc0b571c127e8b38f00cecd97f0855590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap(),
+            },
+        )
+            .unwrap();
+
+        let actual: Vec<TxEventConfirmation> = serde_json::from_str(
+            &res.events
+                .into_iter()
+                .find(|event| event.ty == "messages_poll_started")
+                .unwrap()
+                .attributes
+                .into_iter()
+                .find_map(|attribute| {
+                    if attribute.key == "messages" {
+                        Some(attribute.value)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap(),
+        )
+        .unwrap();
+
+        // payload_hash from the event was changed
+        let mut new_message = message.clone();
+        new_message.payload_hash =
+            HexBinary::from_hex("ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        assert_eq!(
+            actual,
+            vec![(new_message, &MessageIdFormat::HexTxHashAndEventIndex)
+                .try_into()
+                .unwrap()]
+        );
+    }
+
+    fn get_stacks_message_with_payload() -> (Message, HexBinary) {
+        let mut messages = messages(1, &MessageIdFormat::HexTxHashAndEventIndex);
+        messages[0].destination_chain = "axelar".parse().unwrap();
+        messages[0].destination_address =
+            "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                .parse()
+                .unwrap();
+        messages[0].payload_hash =
+            HexBinary::from_hex("936bcd92277f38985ec35365524e9395713afa8df422c708854d3660d42a3903")
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap();
+
+        let message = messages.remove(0);
+
+        (message, HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000b60524f7374deae5624711575011ae6fdfbbf4073fec106f4ebe773da9c6104800000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000b71b0000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000016051ac4a739e6e70be056920e5195e7ed579182c862aa000000000000000000000000000000000000000000000000000000000000000000000000000000000014ab905ea4dc0b571c127e8b38f00cecd97f0855590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap())
     }
 }

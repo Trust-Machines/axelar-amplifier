@@ -15,6 +15,7 @@ use router_api::{ChainName, Message};
 use service_registry::WeightedVerifier;
 use sha3::{Digest, Keccak256};
 
+use crate::contract::its::get_its_payload_and_hash;
 use crate::contract::query::{message_status, verifier_set_status};
 use crate::error::ContractError;
 use crate::events::{
@@ -251,31 +252,35 @@ pub fn verify_message_with_payload(
         )
         .change_context(ContractError::StorageError)?;
 
-    let mut messages =
-            TxEventConfirmation::try_from((message.clone(), &config.msg_id_format))
-                .map_err(|err| report!(err))?;
+    let mut message = TxEventConfirmation::try_from((message.clone(), &config.msg_id_format))
+        .map_err(|err| report!(err))?;
 
-    // let (its_hub_clarity_payload, payload_hash) = get_its_payload_and_hash(message_payload)?;
-    //
-    // message.payload_hash = payload_hash;
+    let (its_hub_clarity_payload, payload_hash) = get_its_payload_and_hash(message_payload)?;
 
-    // TODO: Adapt payload hash before constructing this event
-    // messages.payload_hash = "";
+    message.payload_hash = payload_hash;
 
-    Ok(Response::new().add_event(
-        PollStarted::Messages {
-            messages: vec![messages],
-            metadata: PollMetadata {
-                poll_id: id,
-                source_chain: config.source_chain,
-                source_gateway_address: config.source_gateway_address,
-                confirmation_height: config.confirmation_height,
-                expires_at,
-                participants,
-            },
-        }
-        .into(),
-    ))
+    Ok(Response::new()
+        .add_event(
+            PollStarted::Messages {
+                messages: vec![message],
+                metadata: PollMetadata {
+                    poll_id: id,
+                    source_chain: config.source_chain,
+                    source_gateway_address: config.source_gateway_address,
+                    confirmation_height: config.confirmation_height,
+                    expires_at,
+                    participants,
+                },
+            }
+            .into(),
+        )
+        .add_event(
+            PollStarted::ItsHubClarityPayload {
+                payload: its_hub_clarity_payload,
+                payload_hash,
+            }
+            .into(),
+        ))
 }
 
 fn poll_results(poll: &Poll) -> PollResults {
