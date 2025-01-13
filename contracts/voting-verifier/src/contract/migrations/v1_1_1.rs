@@ -1,6 +1,5 @@
 #![allow(deprecated)]
 
-use crate::contract::{BASE_VERSION, CONTRACT_NAME};
 use axelar_wasm_std::address::AddressFormat;
 use axelar_wasm_std::msg_id::MessageIdFormat;
 use axelar_wasm_std::{nonempty, MajorityThreshold};
@@ -8,6 +7,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Storage};
 use cw_storage_plus::Item;
 use router_api::ChainName;
+
+use crate::contract::{BASE_VERSION, CONTRACT_NAME};
 
 #[deprecated(since = "1.1.1", note = "only used during migration")]
 const CONFIG: Item<OldConfig> = Item::new("config");

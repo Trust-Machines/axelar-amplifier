@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use axelar_wasm_std::{nonempty, MajorityThreshold, Participant, Threshold};
 use cosmwasm_schema::cw_serde;
+use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{Addr, HexBinary, Uint128, Uint64};
 use multisig::key::{KeyType, Signature};
 use multisig::msg::Signer;
@@ -99,16 +100,14 @@ pub fn messages() -> Vec<Message> {
     }]
 }
 
-pub fn messages_its_hub() -> Vec<Message> {
+pub fn messages_its_hub(its_hub_address: String) -> Vec<Message> {
     vec![Message {
         cc_id: CrossChainId::new(
             AXELAR_CHAIN_NAME,
             "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
         )
         .unwrap(),
-        source_address: "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
-            .parse()
-            .unwrap(),
+        source_address: its_hub_address.parse().unwrap(),
         destination_address: "0xA4f10f76B86E01B98daF66A3d02a65e14adb0767"
             .parse()
             .unwrap(),
@@ -223,7 +222,7 @@ pub fn verifier_set_from_pub_keys(pub_keys: Vec<&str>) -> VerifierSet {
         .map(|i| {
             (
                 Participant {
-                    address: Addr::unchecked(format!("verifier{i}")),
+                    address: MockApi::default().addr_make(format!("verifier{i}").as_str()),
                     weight: nonempty::Uint128::one(),
                 },
                 multisig::key::PublicKey::Ecdsa(HexBinary::from_hex(pub_keys[i]).unwrap()),

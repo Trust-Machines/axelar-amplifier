@@ -2,7 +2,7 @@ use axelar_wasm_std::nonempty;
 use axelar_wasm_std::nonempty::Uint256;
 use cosmwasm_std::{HexBinary, Uint128};
 use interchain_token_service as its;
-use interchain_token_service::TokenId;
+use interchain_token_service::{HubMessage, Message, TokenId};
 use router_api::ChainNameRaw;
 use sha3::{Digest, Keccak256};
 use stacks_clarity::common::codec::StacksMessageCodec;
@@ -20,12 +20,12 @@ pub fn get_its_payload_and_hash(
     let its_hub_message = its::HubMessage::abi_decode(message_payload.as_slice()).unwrap();
 
     let payload = match its_hub_message {
-        its::HubMessage::SendToHub { .. } => Err(ContractError::InvalidPayload),
-        its::HubMessage::ReceiveFromHub {
+        HubMessage::SendToHub { .. } => Err(ContractError::InvalidPayload),
+        HubMessage::ReceiveFromHub {
             source_chain,
             message,
         } => match message {
-            its::Message::InterchainTransfer(its::InterchainTransfer {
+            Message::InterchainTransfer(its::InterchainTransfer {
                 token_id,
                 source_address,
                 destination_address,
@@ -39,7 +39,7 @@ pub fn get_its_payload_and_hash(
                 amount,
                 data,
             ),
-            its::Message::DeployInterchainToken(its::DeployInterchainToken {
+            Message::DeployInterchainToken(its::DeployInterchainToken {
                 token_id,
                 name,
                 symbol,
@@ -53,7 +53,9 @@ pub fn get_its_payload_and_hash(
                 decimals,
                 minter,
             ),
+            Message::LinkToken(_) => Err(ContractError::InvalidPayload),
         },
+        HubMessage::RegisterTokenMetadata(_) => Err(ContractError::InvalidPayload),
     }?;
 
     let payload_hash: [u8; 32] = Keccak256::digest(payload.as_slice()).into();

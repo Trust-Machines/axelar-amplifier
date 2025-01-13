@@ -1,8 +1,10 @@
+use axelar_wasm_std::IntoEvent;
 use cosmwasm_std::Uint64;
 use router_api::{ChainName, CrossChainId};
 
 use crate::payload::PayloadId;
 
+#[derive(IntoEvent)]
 pub enum Event {
     ProofUnderConstruction {
         destination_chain: ChainName,
@@ -14,53 +16,6 @@ pub enum Event {
         payload: Vec<u8>,
         payload_hash: [u8; 32],
     },
-}
-
-impl From<Event> for cosmwasm_std::Event {
-    fn from(other: Event) -> Self {
-        match other {
-            Event::ProofUnderConstruction {
-                destination_chain,
-                payload_id,
-                multisig_session_id,
-                msg_ids,
-            } => cosmwasm_std::Event::new("proof_under_construction")
-                .add_attribute(
-                    "destination_chain",
-                    serde_json::to_string(&destination_chain)
-                        .expect("violated invariant: destination_chain is not serializable"),
-                )
-                .add_attribute(
-                    "payload_id",
-                    serde_json::to_string(&payload_id)
-                        .expect("violated invariant: payload_id is not serializable"),
-                )
-                .add_attribute(
-                    "multisig_session_id",
-                    serde_json::to_string(&multisig_session_id)
-                        .expect("violated invariant: multisig_session_id is not serializable"),
-                )
-                .add_attribute(
-                    "message_ids",
-                    serde_json::to_string(&msg_ids)
-                        .expect("violated invariant: message_ids is not serializable"),
-                ),
-            Event::ItsHubClarityPayload {
-                payload,
-                payload_hash,
-            } => cosmwasm_std::Event::new("its_hub_clarity_payload")
-                .add_attribute(
-                    "payload",
-                    serde_json::to_string(&payload)
-                        .expect("violated invariant: payload is not serializable"),
-                )
-                .add_attribute(
-                    "payload_hash",
-                    serde_json::to_string(&payload_hash)
-                        .expect("violated invariant: payload_hash is not serializable"),
-                ),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -98,8 +53,9 @@ mod tests {
             multisig_session_id: Uint64::new(2),
             msg_ids: payload.message_ids().unwrap(),
         };
+        let event = cosmwasm_std::Event::from(event);
 
-        assert!(to_string(&cosmwasm_std::Event::from(event)).is_ok());
+        goldie::assert_json!(event);
     }
 
     #[test]

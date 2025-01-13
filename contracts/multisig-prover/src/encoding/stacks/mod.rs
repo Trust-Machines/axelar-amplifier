@@ -560,7 +560,7 @@ mod tests {
         assert_eq!(
             weighted_signer.signer,
             HexBinary::from_hex(
-                "038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75"
+                "02ba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0"
             )
             .unwrap()
         );
@@ -579,7 +579,7 @@ mod tests {
                 .unwrap(),
             PublicKey::Ecdsa(
                 HexBinary::from_hex(
-                    "038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75"
+                    "02ba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0"
                 )
                 .unwrap()
             )

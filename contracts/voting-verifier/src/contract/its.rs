@@ -2,7 +2,7 @@ use axelar_wasm_std::nonempty;
 use axelar_wasm_std::nonempty::Uint256;
 use cosmwasm_std::{HexBinary, Uint128};
 use interchain_token_service as its;
-use interchain_token_service::TokenId;
+use interchain_token_service::{HubMessage, Message, TokenId};
 use sha3::{Digest, Keccak256};
 use stacks_clarity::common::codec::StacksMessageCodec;
 use stacks_clarity::vm::representations::ClarityName;
@@ -20,13 +20,13 @@ pub fn get_its_payload_and_hash(
     let its_hub_message = its::HubMessage::abi_decode(message_payload.as_slice()).unwrap();
 
     let payload = match its_hub_message {
-        its::HubMessage::ReceiveFromHub { .. } => Err(ContractError::InvalidPayload),
-        its::HubMessage::SendToHub {
+        HubMessage::ReceiveFromHub { .. } => Err(ContractError::InvalidPayload),
+        HubMessage::SendToHub {
             destination_chain,
             message,
         } => {
             let inner_payload = match message {
-                its::Message::InterchainTransfer(its::InterchainTransfer {
+                Message::InterchainTransfer(its::InterchainTransfer {
                     token_id,
                     source_address,
                     destination_address,
@@ -39,7 +39,7 @@ pub fn get_its_payload_and_hash(
                     amount,
                     data,
                 ),
-                its::Message::DeployInterchainToken(its::DeployInterchainToken {
+                Message::DeployInterchainToken(its::DeployInterchainToken {
                     token_id,
                     name,
                     symbol,
@@ -52,6 +52,7 @@ pub fn get_its_payload_and_hash(
                     decimals,
                     minter,
                 ),
+                Message::LinkToken(_) => Err(ContractError::InvalidPayload),
             }?;
 
             let tuple_data = TupleData::from_data(vec![
@@ -72,6 +73,7 @@ pub fn get_its_payload_and_hash(
 
             Ok(Value::from(tuple_data).serialize_to_vec())
         }
+        HubMessage::RegisterTokenMetadata(_) => Err(ContractError::InvalidPayload),
     }?;
 
     let payload_hash: [u8; 32] = Keccak256::digest(payload.as_slice()).into();
