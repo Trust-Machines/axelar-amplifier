@@ -78,11 +78,6 @@ pub enum ExecuteMsg {
     UpdateVotingThreshold {
         new_voting_threshold: MajorityThreshold,
     },
-
-    #[permission(Governance)]
-    UpdateSourceGatewayAddress {
-        new_source_gateway_address: nonempty::String,
-    },
 }
 
 #[cw_serde]
