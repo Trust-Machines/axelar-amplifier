@@ -44,27 +44,6 @@ pub fn update_voting_threshold(
     Ok(Response::new())
 }
 
-pub fn update_source_gateway_address(
-    deps: DepsMut,
-    new_source_gateway_address: nonempty::String,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage).expect("failed to load config");
-
-    validate_address(&new_source_gateway_address, &config.address_format)
-        .change_context(ContractError::InvalidSourceGatewayAddress)?;
-
-    CONFIG
-        .update(
-            deps.storage,
-            |mut config| -> Result<_, cosmwasm_std::StdError> {
-                config.source_gateway_address = new_source_gateway_address;
-                Ok(config)
-            },
-        )
-        .change_context(ContractError::StorageError)?;
-    Ok(Response::new())
-}
-
 pub fn verify_verifier_set(
     deps: DepsMut,
     env: Env,

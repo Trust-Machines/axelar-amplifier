@@ -3,12 +3,12 @@ use axelar_wasm_std::{address, permission_control, FnExt};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Attribute, Binary, Deps, DepsMut, Env, Event, MessageInfo, Response,
+    to_json_binary, Attribute, Binary, Deps, DepsMut, Empty, Env, Event, MessageInfo, Response,
 };
 use error_stack::ResultExt;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrationMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
 mod execute;
@@ -114,12 +114,8 @@ pub fn query(
 pub fn migrate(
     deps: DepsMut,
     _env: Env,
-    msg: MigrationMsg,
+    _msg: Empty,
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
-    let its_hub_address = address::validate_cosmwasm_address(deps.api, &msg.its_hub_address)?;
-
-    migrations::v1_1_1::migrate(deps.storage, its_hub_address)?;
-
     cw2::assert_contract_version(deps.storage, CONTRACT_NAME, BASE_VERSION)?;
 
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
