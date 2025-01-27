@@ -17,7 +17,8 @@ const MESSAGE_TYPE_SEND_TO_HUB: u128 = 3;
 pub fn get_its_payload_and_hash(
     message_payload: HexBinary,
 ) -> Result<(Vec<u8>, [u8; 32]), ContractError> {
-    let its_hub_message = its::HubMessage::abi_decode(message_payload.as_slice()).unwrap();
+    let its_hub_message = its::HubMessage::abi_decode(message_payload.as_slice())
+        .map_err(|_| ContractError::InvalidPayload)?;
 
     let payload = match its_hub_message {
         HubMessage::ReceiveFromHub { .. } => Err(ContractError::InvalidPayload),
