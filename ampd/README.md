@@ -44,18 +44,18 @@ type="MultisigSigner"
 chain_name=[chain name. Not necessary in the Sui case]
 chain_rpc_url=[URL of JSON-RPC endpoint for external chain]
 cosmwasm_contract=[verifier contract address]
-type=[handler type. Could be EvmMsgVerifier | SuiMsgVerifier]
+type=[handler type. Could be EvmMsgVerifier | SuiMsgVerifier | StarknetMsgVerifier | StacksMsgVerifier]
 
 # handler to verify verifier set rotations. One per supported chain
 [[handlers]]
 chain_name=[chain name. Not necessary in the Sui case]
 chain_rpc_url=[URL of JSON-RPC endpoint for external chain]
 cosmwasm_contract=[verifier contract address]
-type=[handler type. Could be EvmVerifierSetVerifier | SuiVerifierSetVerifier]
+type=[handler type. Could be EvmVerifierSetVerifier | SuiVerifierSetVerifier | StarknetVerifierSetVerifier | StacksVerifierSetVerifier]
 ```
 
 Below is an example config for connecting to a local axelard node and local tofnd process, and verifying transactions
-from Avalanche testnet and Sui testnet.
+from Avalanche testnet, Sui testnet and Stacks testnet.
 
 ```yaml
 health_check_bind_addr="0.0.0.0:3000"
@@ -96,18 +96,32 @@ cosmwasm_contract = 'axelar1hmdc9verjjfttcsav57nhcjm7hfcrpg08tqk9phcceulzurnfqns
 rpc_url = "https://fullnode.testnet.sui.io:443"
 
 [[handlers]]
+type = 'StacksMsgVerifier'
+cosmwasm_contract = 'axelar1mjlvl44v8er50nxjxcuugd4prafzxj4r84q84pf3ntgte6crnywsrk0s5e'
+http_url = 'https://api.testnet.hiro.so' # Stacks Hiro API URL
+
+[[handlers]]
+type = 'StacksVerifierSetVerifier'
+cosmwasm_contract = 'axelar1mjlvl44v8er50nxjxcuugd4prafzxj4r84q84pf3ntgte6crnywsrk0s5e'
+http_url = 'https://api.testnet.hiro.so' # Stacks Hiro API URL
+
+[[handlers]]
 type = 'EvmMsgVerifier'
 cosmwasm_contract = 'axelar14lh98gp06zdqh5r9qj3874hdmfzs4sh5tkfzg3cyty4xeqsufdjqedt3q8'
 chain_name = 'avalanche'
 chain_rpc_url = "https://api.avax-test.network/ext/bc/C/rpc"
 
+[[handlers]]
+type = 'StarknetMsgVerifier'
+cosmwasm_contract = 'axelar1f7qqgp0zk8489s69xxszut07kxse7y5j6j5tune36x75dc9ftfsssdkf2u'
+chain = 'starknet-devnet-v1'
+rpc_url = "https://starknet-sepolia.public.blastapi.io/rpc/v0_7"
 
 [[handlers]]
 type = 'EvmVerifierSetVerifier'
 cosmwasm_contract = 'axelar14lh98gp06zdqh5r9qj3874hdmfzs4sh5tkfzg3cyty4xeqsufdjqedt3q8'
 chain_name = 'avalanche'
 chain_rpc_url = "https://api.avax-test.network/ext/bc/C/rpc"
-
 ```
 
 By default, ampd loads the config file from `~/.ampd/config.toml` when running any command.

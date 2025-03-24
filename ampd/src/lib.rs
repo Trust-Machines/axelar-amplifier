@@ -14,6 +14,7 @@ use evm::json_rpc::EthereumClient;
 use multiversx_sdk::gateway::GatewayProxy;
 use queue::queued_broadcaster::QueuedBroadcaster;
 use router_api::ChainName;
+use starknet_providers::jsonrpc::HttpTransport;
 use thiserror::Error;
 use tofnd::grpc::{Multisig, MultisigClient};
 use tokio::signal::unix::{signal, SignalKind};
@@ -34,21 +35,19 @@ pub mod config;
 mod event_processor;
 mod event_sub;
 mod evm;
-mod grpc;
 mod handlers;
 mod health_check;
 mod json_rpc;
 mod mvx;
 mod queue;
 mod stacks;
+mod starknet;
 mod stellar;
 mod sui;
 mod tm_client;
 mod tofnd;
 mod types;
 mod url;
-
-pub use grpc::{client, proto};
 
 use crate::asyncutil::future::RetryPolicy;
 use crate::broadcaster::confirm_tx::TxConfirmer;
@@ -391,6 +390,38 @@ where
                     ),
                     event_processor_config.clone(),
                 ),
+                handlers::config::Config::StarknetMsgVerifier {
+                    cosmwasm_contract,
+                    rpc_url,
+                } => self.create_handler_task(
+                    "starknet-msg-verifier",
+                    handlers::starknet_verify_msg::Handler::new(
+                        verifier.clone(),
+                        cosmwasm_contract,
+                        starknet::json_rpc::Client::new_with_transport(HttpTransport::new(
+                            &rpc_url,
+                        ))
+                        .change_context(Error::Connection)?,
+                        self.block_height_monitor.latest_block_height(),
+                    ),
+                    event_processor_config.clone(),
+                ),
+                handlers::config::Config::StarknetVerifierSetVerifier {
+                    cosmwasm_contract,
+                    rpc_url,
+                } => self.create_handler_task(
+                    "starknet-verifier-set-verifier",
+                    handlers::starknet_verify_verifier_set::Handler::new(
+                        verifier.clone(),
+                        cosmwasm_contract,
+                        starknet::json_rpc::Client::new_with_transport(HttpTransport::new(
+                            &rpc_url,
+                        ))
+                        .change_context(Error::Connection)?,
+                        self.block_height_monitor.latest_block_height(),
+                    ),
+                    event_processor_config.clone(),
+                ),
                 handlers::config::Config::StacksMsgVerifier {
                     cosmwasm_contract,
                     http_url,
@@ -399,7 +430,7 @@ where
                     handlers::stacks_verify_msg::Handler::new(
                         verifier.clone(),
                         cosmwasm_contract,
-                        Client::new_http(http_url.to_string().trim_end_matches('/').into()),
+                        Client::new_http(http_url),
                         self.block_height_monitor.latest_block_height(),
                     )
                     .await
@@ -414,7 +445,7 @@ where
                     handlers::stacks_verify_verifier_set::Handler::new(
                         verifier.clone(),
                         cosmwasm_contract,
-                        Client::new_http(http_url.to_string().trim_end_matches('/').into()),
+                        Client::new_http(http_url),
                         self.block_height_monitor.latest_block_height(),
                     ),
                     event_processor_config.clone(),

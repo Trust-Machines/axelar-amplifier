@@ -139,3 +139,17 @@ pub fn ecdsa_key(pub_key: &PublicKey) -> Result<Vec<u8>, Error> {
         _ => Err(Error::NotEcdsaKey),
     }
 }
+
+// Implement custom serde deserialize for PrincipalData
+pub mod principal_data_serde {
+    use clarity::vm::types::PrincipalData;
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PrincipalData, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        PrincipalData::parse(&s).map_err(|_| serde::de::Error::custom("Invalid principal format"))
+    }
+}
