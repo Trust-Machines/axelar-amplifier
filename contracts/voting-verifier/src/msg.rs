@@ -6,6 +6,7 @@ use msgs_derive::EnsurePermissions;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
 pub use voting_verifier_api::msg::InstantiateMsg;
+
 pub use crate::contract::MigrateMsg;
 
 #[cw_serde]
