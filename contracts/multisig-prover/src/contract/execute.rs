@@ -18,6 +18,7 @@ use sha3::{Digest, Keccak256};
 
 use crate::contract::its::get_its_payload_and_hash;
 use crate::contract::START_MULTISIG_REPLY_ID;
+use crate::encoding::EncoderExt;
 use crate::error::ContractError;
 use crate::events::Event;
 use crate::payload::Payload;
@@ -523,6 +524,7 @@ mod tests {
     use axelar_wasm_std::Threshold;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi};
     use cosmwasm_std::Addr;
+    use multisig_prover_api::encoding::Encoder;
     use router_api::ChainName;
 
     use super::{different_set_in_progress, next_verifier_set, should_update_verifier_set};
@@ -655,7 +657,7 @@ mod tests {
             service_name: "validators".to_string(),
             chain_name: ChainName::try_from("ethereum".to_owned()).unwrap(),
             verifier_set_diff_threshold: 0,
-            encoder: crate::encoding::Encoder::Abi,
+            encoder: Encoder::Abi,
             key_type: multisig::key::KeyType::Ecdsa,
             domain_separator: [0; 32],
             its_hub_address: Addr::unchecked("doesn't matter"),
