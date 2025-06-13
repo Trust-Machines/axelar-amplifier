@@ -12,7 +12,6 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
 mod execute;
-mod its;
 mod migrations;
 mod query;
 
@@ -51,6 +50,10 @@ pub fn instantiate(
         msg_id_format: msg.msg_id_format,
         address_format: msg.address_format,
         its_hub_address: address::validate_cosmwasm_address(deps.api, &msg.its_hub_address)?,
+        stacks_abi_transformer: address::validate_cosmwasm_address(
+            deps.api,
+            &msg.stacks_abi_transformer,
+        )?,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -151,6 +154,7 @@ mod test {
     const POLL_BLOCK_EXPIRY: u64 = 100;
     const GOVERNANCE: &str = "governance";
     const ITS_HUB: &str = "its_hub";
+    const STACKS_ABI_TRANSFORMER: &str = "stacks_abi_transformer";
 
     fn source_chain() -> ChainName {
         "source-chain".parse().unwrap()
@@ -210,6 +214,7 @@ mod test {
                 msg_id_format: msg_id_format.clone(),
                 address_format: AddressFormat::Eip55,
                 its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
+                stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).as_str().parse().unwrap(),
             },
         )
         .unwrap();
@@ -264,6 +269,7 @@ mod test {
                 msg_id_format: msg_id_format.clone(),
                 address_format: AddressFormat::Stacks,
                 its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
+                stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).as_str().parse().unwrap(),
             },
         )
         .unwrap();
@@ -505,6 +511,7 @@ mod test {
                     msg_id_format: MessageIdFormat::HexTxHashAndEventIndex,
                     address_format,
                     its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
+                    stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).as_str().parse().unwrap(),
                 },
             );
 
@@ -2140,6 +2147,7 @@ mod test {
         });
     }
 
+    // TODO: Update tests
     #[test]
     fn should_emit_event_when_verification_succeeds_with_payload() {
         let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;

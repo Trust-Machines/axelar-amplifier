@@ -24,6 +24,7 @@ pub struct Config {
     pub msg_id_format: MessageIdFormat,
     pub address_format: AddressFormat,
     pub its_hub_address: Addr,
+    pub stacks_abi_transformer: Addr,
 }
 
 #[cw_serde]

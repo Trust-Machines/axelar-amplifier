@@ -32,4 +32,6 @@ pub struct InstantiateMsg {
 
     /// Address of the ITS Hub contract
     pub its_hub_address: String,
+    /// Address of the Stacks ABI Transformer contract
+    pub stacks_abi_transformer: String,
 }

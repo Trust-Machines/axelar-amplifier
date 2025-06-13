@@ -1,5 +1,14 @@
 use std::collections::HashMap;
 
+use crate::contract::query::{message_status, verifier_set_status};
+use crate::error::ContractError;
+use crate::events::{
+    PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
+    VerifierSetConfirmation, Voted,
+};
+use crate::state::{
+    self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
+};
 use axelar_wasm_std::address::{validate_address, AddressFormat};
 use axelar_wasm_std::utils::TryMapExt;
 use axelar_wasm_std::voting::{PollId, PollResults, Vote, WeightedPoll};
@@ -14,17 +23,7 @@ use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, Message};
 use service_registry::WeightedVerifier;
 use sha3::{Digest, Keccak256};
-
-use crate::contract::its::get_its_payload_and_hash;
-use crate::contract::query::{message_status, verifier_set_status};
-use crate::error::ContractError;
-use crate::events::{
-    PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
-    VerifierSetConfirmation, Voted,
-};
-use crate::state::{
-    self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
-};
+use stacks_abi_transformer::msg::DecodeResponse;
 
 pub const AXELAR_CHAIN_NAME: &str = "axelar";
 
@@ -228,7 +227,15 @@ pub fn verify_message_with_payload(
     let mut message = TxEventConfirmation::try_from((message.clone(), &config.msg_id_format))
         .map_err(|err| report!(err))?;
 
-    let (its_hub_clarity_payload, payload_hash) = get_its_payload_and_hash(message_payload)?;
+    let stacks_abi_transformer: stacks_abi_transformer::Client =
+        client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
+
+    let DecodeResponse {
+        clarity_payload,
+        payload_hash,
+    } = stacks_abi_transformer
+        .decode_from_abi(message_payload)
+        .change_context(ContractError::InvalidPayload)?;
 
     message.payload_hash = payload_hash;
 
@@ -245,7 +252,7 @@ pub fn verify_message_with_payload(
             },
         })
         .add_event(PollStarted::ItsHubClarityPayload {
-            payload: its_hub_clarity_payload,
+            payload: clarity_payload,
             payload_hash,
         }))
 }

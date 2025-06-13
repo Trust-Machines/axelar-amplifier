@@ -333,6 +333,7 @@ mod test {
             msg_id_format: axelar_wasm_std::msg_id::MessageIdFormat::HexTxHashAndEventIndex,
             address_format: axelar_wasm_std::address::AddressFormat::Eip55,
             its_hub_address: api.addr_make("its_hub").to_string().try_into().unwrap(),
+            stacks_abi_transformer: api.addr_make("stacks_abi_transformer").to_string().try_into().unwrap(),
         };
 
         instantiate(deps, env, info.clone(), msg.clone()).unwrap();

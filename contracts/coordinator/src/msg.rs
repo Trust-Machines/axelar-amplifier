@@ -113,6 +113,7 @@ pub struct VerifierMsg {
     pub address_format: AddressFormat,
 
     pub its_hub_address: String,
+    pub stacks_abi_transformer: String,
 }
 
 #[cw_serde]

@@ -159,6 +159,7 @@ fn instantiate_verifier(
 
             // Only for contracts to compile, since coordinator will not support this for Stacks
             its_hub_address: verifier_msg.its_hub_address.clone(),
+            stacks_abi_transformer: verifier_msg.stacks_abi_transformer.clone(),
         })
         .change_context(Error::InstantiateVerifier)?,
         label,

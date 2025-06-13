@@ -30,6 +30,7 @@ impl From<Config> for Vec<Attribute> {
             msg_id_format,
             address_format,
             its_hub_address,
+            stacks_abi_transformer,
         } = other;
 
         vec![
@@ -59,6 +60,11 @@ impl From<Config> for Vec<Attribute> {
             (
                 "its_hub_address",
                 serde_json::to_string(&its_hub_address)
+                    .expect("failed to serialize address_format"),
+            ),
+            (
+                "stacks_abi_transformer",
+                serde_json::to_string(&stacks_abi_transformer)
                     .expect("failed to serialize address_format"),
             ),
         ]
@@ -575,6 +581,7 @@ mod test {
             msg_id_format: MessageIdFormat::HexTxHashAndEventIndex,
             address_format: AddressFormat::Eip55,
             its_hub_address: Addr::unchecked("its_hub_address"),
+            stacks_abi_transformer: Addr::unchecked("stacks_abi_transformer"),
         };
         let event_instantiated =
             cosmwasm_std::Event::new("instantiated").add_attributes(<Vec<Attribute>>::from(config));
