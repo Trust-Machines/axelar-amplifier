@@ -29,6 +29,8 @@ impl From<Config> for Vec<Attribute> {
             rewards_contract,
             msg_id_format,
             address_format,
+            its_hub_address,
+            stacks_abi_transformer,
         } = other;
 
         vec![
@@ -55,6 +57,16 @@ impl From<Config> for Vec<Attribute> {
                 "address_format",
                 serde_json::to_string(&address_format).expect("failed to serialize address_format"),
             ),
+            (
+                "its_hub_address",
+                serde_json::to_string(&its_hub_address)
+                    .expect("failed to serialize address_format"),
+            ),
+            (
+                "stacks_abi_transformer",
+                serde_json::to_string(&stacks_abi_transformer)
+                    .expect("failed to serialize address_format"),
+            ),
         ]
         .into_iter()
         .map(Attribute::from)
@@ -79,6 +91,10 @@ pub enum PollStarted {
     VerifierSet {
         verifier_set: VerifierSetConfirmation,
         metadata: PollMetadata,
+    },
+    ItsHubClarityPayload {
+        payload: Vec<u8>,
+        payload_hash: [u8; 32],
     },
 }
 
@@ -130,6 +146,20 @@ impl From<PollStarted> for Event {
                         .expect("failed to serialize verifier set confirmation"),
                 )
                 .add_attributes(Vec::<_>::from(metadata)),
+            PollStarted::ItsHubClarityPayload {
+                payload,
+                payload_hash,
+            } => Event::new("its_hub_clarity_payload")
+                .add_attribute(
+                    "payload",
+                    serde_json::to_string(&payload)
+                        .expect("violated invariant: payload is not serializable"),
+                )
+                .add_attribute(
+                    "payload_hash",
+                    serde_json::to_string(&payload_hash)
+                        .expect("violated invariant: payload_hash is not serializable"),
+                ),
         }
     }
 }
@@ -345,12 +375,13 @@ mod test {
     use axelar_wasm_std::voting::Vote;
     use axelar_wasm_std::{nonempty, Threshold, VerificationStatus};
     use cosmwasm_std::testing::MockApi;
-    use cosmwasm_std::{Attribute, Uint128};
+    use cosmwasm_std::{Addr, Attribute, HexBinary, Uint128};
     use multisig::key::KeyType;
     use multisig::test::common::{build_verifier_set, ecdsa_test_data};
     use multisig::verifier_set::VerifierSet;
     use router_api::{CrossChainId, Message};
-    use serde_json::json;
+    use serde_json::{json, to_string};
+    use sha3::{Digest, Keccak256};
 
     use super::{TxEventConfirmation, VerifierSetConfirmation};
     use crate::events::{PollEnded, PollMetadata, PollStarted, QuorumReached, Voted};
@@ -549,6 +580,8 @@ mod test {
             rewards_contract: api.addr_make("rewardsContract"),
             msg_id_format: MessageIdFormat::HexTxHashAndEventIndex,
             address_format: AddressFormat::Eip55,
+            its_hub_address: Addr::unchecked("its_hub_address"),
+            stacks_abi_transformer: Addr::unchecked("stacks_abi_transformer"),
         };
         let event_instantiated =
             cosmwasm_std::Event::new("instantiated").add_attributes(<Vec<Attribute>>::from(config));
@@ -645,5 +678,19 @@ mod test {
             "event_voted": event_voted,
             "event_poll_ended": event_poll_ended,
         }));
+    }
+
+    #[test]
+    fn its_hub_clarity_payload_is_serializable() {
+        let payload =
+            HexBinary::from_hex("0c0000000506706172616d7302000000420c00000002086f70657261746f72090d746f6b656e2d61646472657373061a555db886b8dda288a0a7695027c4d2656dacbc760e73616d706c652d7369702d3031300c736f757263652d636861696e0d0000000e6176616c616e6368652d66756a6908746f6b656e2d69640200000020dfbbd97a4e0c3ec2338d800be851dca6d08d4779398d4070d5cb18d2ebfe62d712746f6b656e2d6d616e616765722d74797065010000000000000000000000000000000204747970650100000000000000000000000000000002").unwrap();
+        let payload_hash: [u8; 32] = Keccak256::digest(payload.as_slice()).into();
+
+        let event = PollStarted::ItsHubClarityPayload {
+            payload: payload.to_vec(),
+            payload_hash,
+        };
+
+        assert!(to_string(&cosmwasm_std::Event::from(event)).is_ok());
     }
 }

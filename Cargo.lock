@@ -1066,6 +1066,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha3",
+ "stacks-clarity",
  "starknet-checked-felt",
  "stellar-xdr",
  "strum 0.25.0",
@@ -6501,6 +6502,7 @@ dependencies = [
  "generic-array 0.14.7",
  "goldie",
  "hex",
+ "interchain-token-service",
  "itertools 0.11.0",
  "k256",
  "msgs-derive",
@@ -6514,6 +6516,7 @@ dependencies = [
  "service-registry",
  "service-registry-api",
  "sha3",
+ "stacks-clarity",
  "stellar",
  "stellar-xdr",
  "sui-gateway",
@@ -11489,6 +11492,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "stacks-abi-transformer"
+version = "1.0.0"
+dependencies = [
+ "alloy-primitives",
+ "assert_ok",
+ "axelar-wasm-std",
+ "bech32 0.11.0",
+ "client",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-storage-plus",
+ "cw2",
+ "error-stack",
+ "goldie",
+ "integration-tests",
+ "interchain-token-service",
+ "itertools 0.14.0",
+ "msgs-derive",
+ "multisig",
+ "rand 0.8.5",
+ "report",
+ "router-api",
+ "semver 1.0.26",
+ "serde_json",
+ "sha3",
+ "stacks-clarity",
+ "starknet-checked-felt",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "stacks-clarity"
+version = "1.0.0"
+dependencies = [
+ "getrandom 0.2.16",
+ "hashbrown 0.15.3",
+ "lazy_static",
+ "rand 0.8.5",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "slog",
+]
+
+[[package]]
 name = "stacks-common"
 version = "0.0.1"
 source = "git+https://github.com/stacks-network/stacks-core?tag=3.1.0.0.7#d015471cb582010a3c582ab4c30e42d4bd13a1ea"
@@ -13569,7 +13619,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "voting-verifier"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "alloy-primitives",
  "assert_ok",
@@ -13584,6 +13634,7 @@ dependencies = [
  "error-stack",
  "goldie",
  "integration-tests",
+ "interchain-token-service",
  "itertools 0.14.0",
  "msgs-derive",
  "multisig",
@@ -13596,6 +13647,8 @@ dependencies = [
  "service-registry",
  "service-registry-api",
  "sha3",
+ "stacks-abi-transformer",
+ "stacks-clarity",
  "starknet-checked-felt",
  "thiserror 1.0.69",
  "voting-verifier-api",

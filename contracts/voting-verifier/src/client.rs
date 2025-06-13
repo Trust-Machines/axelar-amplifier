@@ -1,7 +1,7 @@
 use axelar_wasm_std::vec::VecExt;
 use axelar_wasm_std::voting::{PollId, Vote};
 use axelar_wasm_std::{nonempty, MajorityThreshold, VerificationStatus};
-use cosmwasm_std::CosmosMsg;
+use cosmwasm_std::{CosmosMsg, HexBinary};
 use error_stack::ResultExt;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
@@ -48,6 +48,11 @@ impl Client<'_> {
         messages
             .to_none_if_empty()
             .map(|messages| self.client.execute(&ExecuteMsg::VerifyMessages(messages)))
+    }
+
+    pub fn verify_message_with_payload(&self, message: Message, payload: HexBinary) -> CosmosMsg {
+        self.client
+            .execute(&ExecuteMsg::VerifyMessageWithPayload { message, payload })
     }
 
     pub fn vote(&self, poll_id: PollId, votes: Vec<Vote>) -> CosmosMsg {
@@ -327,6 +332,8 @@ mod test {
             rewards_address: api.addr_make("rewards").to_string().try_into().unwrap(),
             msg_id_format: axelar_wasm_std::msg_id::MessageIdFormat::HexTxHashAndEventIndex,
             address_format: axelar_wasm_std::address::AddressFormat::Eip55,
+            its_hub_address: api.addr_make("its_hub").to_string().try_into().unwrap(),
+            stacks_abi_transformer: api.addr_make("stacks_abi_transformer").to_string().try_into().unwrap(),
         };
 
         instantiate(deps, env, info.clone(), msg.clone()).unwrap();
