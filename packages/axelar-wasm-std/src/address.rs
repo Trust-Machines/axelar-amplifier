@@ -4,6 +4,7 @@ use alloy_primitives::Address;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Api};
 use error_stack::{bail, Result, ResultExt};
+use stacks_clarity::vm::types::PrincipalData;
 use starknet_checked_felt::CheckedFelt;
 use stellar_xdr::curr::ScAddress;
 use sui_types::SuiAddress;
@@ -21,6 +22,7 @@ pub enum AddressFormat {
     Sui,
     Stellar,
     Starknet,
+    Stacks,
 }
 
 pub fn validate_address(address: &str, format: &AddressFormat) -> Result<(), Error> {
@@ -43,6 +45,10 @@ pub fn validate_address(address: &str, format: &AddressFormat) -> Result<(), Err
         AddressFormat::Starknet => {
             CheckedFelt::from_str(address)
                 .change_context(Error::InvalidAddress(address.to_string()))?;
+        }
+        AddressFormat::Stacks => {
+            PrincipalData::parse(address)
+                .map_err(|_| Error::InvalidAddress(address.to_string()))?;
         }
     }
 
@@ -284,5 +290,31 @@ mod tests {
             address::Error,
             address::Error::InvalidAddress(..)
         );
+    }
+
+    #[test]
+    fn validate_stacks_address() {
+        // account
+        let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF";
+        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_ok());
+
+        // contract
+        let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWC.some-contract";
+        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_ok());
+
+        // too short
+        let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VP";
+        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
+
+        // too long
+        let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPFF";
+        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
+
+        // invalid contract
+        let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWCsome-contract";
+        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
+
+        let addr = "some-contract";
+        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
     }
 }

@@ -29,4 +29,9 @@ pub struct InstantiateMsg {
     /// Format that incoming messages should use for the id field of CrossChainId
     pub msg_id_format: MessageIdFormat,
     pub address_format: AddressFormat,
+
+    /// Address of the ITS Hub contract
+    pub its_hub_address: String,
+    /// Address of the Stacks ABI Transformer contract
+    pub stacks_abi_transformer: String,
 }

@@ -1,6 +1,7 @@
 use axelar_wasm_std::voting::{PollId, PollStatus, Vote, WeightedPoll};
 use axelar_wasm_std::{nonempty, MajorityThreshold, VerificationStatus};
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::HexBinary;
 use msgs_derive::EnsurePermissions;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
@@ -24,6 +25,12 @@ pub enum ExecuteMsg {
     // starts a poll for any not yet verified messages
     #[permission(Any)]
     VerifyMessages(Vec<Message>),
+
+    #[permission(Any)]
+    VerifyMessageWithPayload {
+        message: Message,
+        payload: HexBinary,
+    },
 
     // Starts a poll to confirm a verifier set update on the external gateway
     #[permission(Any)]

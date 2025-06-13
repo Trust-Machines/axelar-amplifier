@@ -9,6 +9,8 @@ use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::{CrossChainId, Message};
 
+use crate::contract::execute::AXELAR_CHAIN_NAME;
+
 pub fn new_verifier_set() -> VerifierSet {
     let signers = vec![
         Signer {
@@ -91,6 +93,27 @@ pub fn messages() -> Vec<Message> {
         destination_chain: "ganache-0".parse().unwrap(),
         payload_hash: HexBinary::from_hex(
             "8c3685dc41c2eca11426f8035742fb97ea9f14931152670a5703f18fe8b392f0",
+        )
+        .unwrap()
+        .to_array::<32>()
+        .unwrap(),
+    }]
+}
+
+pub fn messages_its_hub(its_hub_address: String) -> Vec<Message> {
+    vec![Message {
+        cc_id: CrossChainId::new(
+            AXELAR_CHAIN_NAME,
+            "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
+        )
+        .unwrap(),
+        source_address: its_hub_address.parse().unwrap(),
+        destination_address: "0xA4f10f76B86E01B98daF66A3d02a65e14adb0767"
+            .parse()
+            .unwrap(),
+        destination_chain: "ganache-0".parse().unwrap(),
+        payload_hash: HexBinary::from_hex(
+            "12631a3e837d4631c7b8fd371bb87ecea322e1d40707d0e55335bfd5dc889039",
         )
         .unwrap()
         .to_array::<32>()

@@ -95,6 +95,8 @@ pub struct ProverMsg {
     #[serde(with = "axelar_wasm_std::hex")] // (de)serialization with hex module
     #[schemars(with = "String")] // necessary attribute in conjunction with #[serde(with ...)]
     pub domain_separator: Hash,
+
+    pub its_hub_address: String,
 }
 
 #[cw_serde]
@@ -109,6 +111,9 @@ pub struct VerifierMsg {
     pub rewards_address: nonempty::String,
     pub msg_id_format: MessageIdFormat,
     pub address_format: AddressFormat,
+
+    pub its_hub_address: String,
+    pub stacks_abi_transformer: String,
 }
 
 #[cw_serde]
