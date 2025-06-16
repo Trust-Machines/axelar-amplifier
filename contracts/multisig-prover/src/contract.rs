@@ -9,7 +9,6 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
 pub mod execute;
-mod its;
 mod migrations;
 mod query;
 mod reply;
@@ -50,6 +49,10 @@ pub fn instantiate(
         key_type: msg.key_type,
         domain_separator: msg.domain_separator,
         its_hub_address: address::validate_cosmwasm_address(deps.api, &msg.its_hub_address)?,
+        stacks_abi_transformer: address::validate_cosmwasm_address(
+            deps.api,
+            &msg.stacks_abi_transformer,
+        )?,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -148,7 +151,7 @@ mod tests {
     use crate::test::test_utils::{
         mock_querier_handler, mock_querier_handler_its_hub, ADMIN, COORDINATOR_ADDRESS,
         GATEWAY_ADDRESS, GOVERNANCE, ITS_HUB_ADDRESS, MULTISIG_ADDRESS, SERVICE_NAME,
-        SERVICE_REGISTRY_ADDRESS, VOTING_VERIFIER_ADDRESS,
+        SERVICE_REGISTRY_ADDRESS, STACKS_ABI_TRANSFORMER, VOTING_VERIFIER_ADDRESS,
     };
 
     const RELAYER: &str = "relayer";
@@ -183,6 +186,7 @@ mod tests {
                 key_type: multisig::key::KeyType::Ecdsa,
                 domain_separator: [0; 32],
                 its_hub_address: api.addr_make(ITS_HUB_ADDRESS).to_string(),
+                stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).to_string(),
             },
         )
         .unwrap();
@@ -195,6 +199,7 @@ mod tests {
         let api = deps.api;
 
         let its_hub_address = api.addr_make(ITS_HUB_ADDRESS).to_string();
+        let stacks_abi_transformer = api.addr_make(STACKS_ABI_TRANSFORMER).to_string();
 
         deps.querier.update_wasm(mock_querier_handler_its_hub(
             test_data::operators(),
@@ -222,6 +227,7 @@ mod tests {
                 key_type: multisig::key::KeyType::Ecdsa,
                 domain_separator: [0; 32],
                 its_hub_address,
+                stacks_abi_transformer,
             },
         )
         .unwrap();
@@ -385,6 +391,7 @@ mod tests {
         let service_registry_address = api.addr_make("service_registry_address");
         let voting_verifier_address = api.addr_make("voting_verifier");
         let its_hub_address = api.addr_make("its_hub");
+        let stacks_abi_transformer = api.addr_make("stacks_abi_transformer");
         let signing_threshold = Threshold::try_from((
             test_data::threshold().numerator(),
             test_data::threshold().denominator(),
@@ -414,6 +421,7 @@ mod tests {
                 key_type: multisig::key::KeyType::Ecdsa,
                 domain_separator: [0; 32],
                 its_hub_address: its_hub_address.to_string(),
+                stacks_abi_transformer: stacks_abi_transformer.to_string(),
             };
 
             let res = instantiate(deps.as_mut(), env, info, msg);

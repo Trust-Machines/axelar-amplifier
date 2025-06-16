@@ -75,7 +75,6 @@ impl From<ContractError> for StdError {
     }
 }
 
-// TODO: Handle different cases here?
 impl From<ClarityError> for ContractError {
     fn from(_: ClarityError) -> Self {
         ContractError::InvalidMessage

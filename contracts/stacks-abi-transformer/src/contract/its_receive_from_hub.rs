@@ -1,3 +1,7 @@
+use crate::contract::its_send_to_hub::{
+    MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
+};
+use crate::error::ContractError;
 use axelar_wasm_std::nonempty;
 use axelar_wasm_std::nonempty::Uint256;
 use cosmwasm_std::{HexBinary, Uint128};
@@ -9,12 +13,7 @@ use stacks_clarity::common::codec::StacksMessageCodec;
 use stacks_clarity::vm::representations::ClarityName;
 use stacks_clarity::vm::types::{TupleData, Value};
 
-use crate::error::ContractError;
-
-const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
-const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
-
-pub fn get_its_payload_and_hash(
+pub fn get_its_payload_and_hash_receive_from_hub(
     message_payload: HexBinary,
 ) -> Result<(Vec<u8>, [u8; 32]), ContractError> {
     let its_hub_message = its::HubMessage::abi_decode(message_payload.as_slice())
@@ -32,7 +31,7 @@ pub fn get_its_payload_and_hash(
                 destination_address,
                 amount,
                 data,
-            }) => get_its_interchain_transfer_payload(
+            }) => get_its_interchain_transfer_payload_receive_from_hub(
                 source_chain,
                 token_id,
                 source_address.into(),
@@ -46,7 +45,7 @@ pub fn get_its_payload_and_hash(
                 symbol,
                 decimals,
                 minter,
-            }) => get_its_deploy_interchain_token_payload(
+            }) => get_its_deploy_interchain_token_payload_receive_from_hub(
                 source_chain,
                 token_id,
                 name.into(),
@@ -64,7 +63,7 @@ pub fn get_its_payload_and_hash(
     Ok((payload, payload_hash))
 }
 
-fn get_its_interchain_transfer_payload(
+fn get_its_interchain_transfer_payload_receive_from_hub(
     source_chain: ChainNameRaw,
     token_id: TokenId,
     source_address: HexBinary,
@@ -120,7 +119,7 @@ fn get_its_interchain_transfer_payload(
     Ok(Value::from(tuple_data).serialize_to_vec())
 }
 
-fn get_its_deploy_interchain_token_payload(
+fn get_its_deploy_interchain_token_payload_receive_from_hub(
     source_chain: ChainNameRaw,
     token_id: TokenId,
     name: String,
@@ -173,14 +172,20 @@ fn get_its_deploy_interchain_token_payload(
 mod tests {
     use std::str::FromStr;
 
+    use crate::contract::its_receive_from_hub::get_its_payload_and_hash_receive_from_hub;
+    use crate::contract::its_send_to_hub::{
+        MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
+    };
+    use crate::error::ContractError;
+    use axelar_wasm_std::nonempty;
     use cosmwasm_std::HexBinary;
     use interchain_token_service as its;
     use interchain_token_service::TokenId;
     use router_api::ChainNameRaw;
     use sha3::{Digest, Keccak256};
-
-    use crate::contract::its::get_its_payload_and_hash;
-    use crate::error::ContractError;
+    use stacks_clarity::common::codec::StacksMessageCodec;
+    use stacks_clarity::vm::representations::ClarityName;
+    use stacks_clarity::vm::types::{TupleData, Value};
 
     #[test]
     fn test_get_its_payload_hash_send_to_hub_error() {
@@ -198,7 +203,7 @@ mod tests {
         }
         .abi_encode();
 
-        let res = get_its_payload_and_hash(message_payload);
+        let res = get_its_payload_and_hash_receive_from_hub(message_payload);
 
         assert!(res.is_err());
         assert_eq!(
@@ -208,30 +213,112 @@ mod tests {
     }
 
     #[test]
-    fn test_get_its_payload_hash_interchain_transfer() {
-        let message_payload =
-            HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap();
+    fn test_get_its_payload_hash_interchain_transfer_receive_from_hub() {
+        let token_id: [u8; 32] = Keccak256::digest(vec![1, 2, 3]).into();
 
-        let (_, payload_hash) = get_its_payload_and_hash(message_payload).unwrap();
+        let message_payload = its::HubMessage::ReceiveFromHub {
+            source_chain: ChainNameRaw::from_str("chain").unwrap(),
+            message: its::Message::InterchainTransfer(its::InterchainTransfer {
+                token_id: token_id.into(),
+                source_address: from_hex("00"),
+                destination_address: from_hex("10"),
+                amount: 1u64.try_into().unwrap(),
+                data: Some(from_hex("1234")),
+            }),
+        }
+        .abi_encode();
 
-        assert_eq!(
-            payload_hash,
-            HexBinary::from_hex("9399aacddb14646f239b4dd906bd50c0246669863257823ed80de5a36f95d070")
-                .unwrap()
-        );
+        let (payload, payload_hash) =
+            get_its_payload_and_hash_receive_from_hub(message_payload).unwrap();
+
+        let tuple_data = TupleData::from_data(vec![
+            (
+                ClarityName::from("type"),
+                Value::UInt(MESSAGE_TYPE_INTERCHAIN_TRANSFER),
+            ),
+            (
+                ClarityName::from("source-chain"),
+                Value::string_ascii_from_bytes("chain".to_string().into_bytes()).unwrap(),
+            ),
+            (
+                ClarityName::from("token-id"),
+                Value::buff_from(token_id.into()).unwrap(),
+            ),
+            (
+                ClarityName::from("source-address"),
+                Value::buff_from(from_hex("00").to_vec()).unwrap(),
+            ),
+            (
+                ClarityName::from("destination-address"),
+                Value::buff_from(from_hex("10").to_vec()).unwrap(),
+            ),
+            (ClarityName::from("amount"), Value::UInt(1u128)),
+            (
+                ClarityName::from("data"),
+                Value::buff_from(from_hex("1234").to_vec()).unwrap(),
+            ),
+        ])
+        .unwrap();
+        let expected_payload = Value::from(tuple_data).serialize_to_vec();
+
+        assert_eq!(payload, expected_payload);
+        assert_eq!(payload_hash, Keccak256::digest(expected_payload).as_slice());
     }
 
     #[test]
-    fn test_get_its_payload_hash_deploy_interchain_token_payload() {
-        let message_payload =
-            HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000c031ce12590c2efefb2606c231b1b47bc10480448ae705c8f0d54edf616ec2f200000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000016051a72cdd749200c730ca316a0d6157ceff9a50be50c000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap();
+    fn test_get_its_payload_hash_deploy_interchain_token_payload_receive_from_hub() {
+        let token_id: [u8; 32] = Keccak256::digest(vec![]).into();
 
-        let (_, payload_hash) = get_its_payload_and_hash(message_payload).unwrap();
+        let message_payload = its::HubMessage::ReceiveFromHub {
+            source_chain: ChainNameRaw::from_str("chain").unwrap(),
+            message: its::Message::DeployInterchainToken(its::DeployInterchainToken {
+                token_id: token_id.into(),
+                name: "name".to_string().try_into().unwrap(),
+                symbol: "symbol".to_string().try_into().unwrap(),
+                decimals: 18,
+                minter: Some(from_hex("1234")),
+            }),
+        }
+        .abi_encode();
 
-        assert_eq!(
-            payload_hash,
-            HexBinary::from_hex("92e933c55cf55e79eb5207570671e0afc9c49b1e4e269985e51013f67be7b50e")
-                .unwrap()
-        );
+        let tuple_data = TupleData::from_data(vec![
+            (
+                ClarityName::from("type"),
+                Value::UInt(MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN),
+            ),
+            (
+                ClarityName::from("source-chain"),
+                Value::string_ascii_from_bytes("chain".to_string().into_bytes()).unwrap(),
+            ),
+            (
+                ClarityName::from("token-id"),
+                Value::buff_from(token_id.into()).unwrap(),
+            ),
+            (
+                ClarityName::from("name"),
+                Value::string_ascii_from_bytes("name".to_string().into_bytes()).unwrap(),
+            ),
+            (
+                ClarityName::from("symbol"),
+                Value::string_ascii_from_bytes("symbol".to_string().into_bytes()).unwrap(),
+            ),
+            (ClarityName::from("decimals"), Value::UInt(18u128)),
+            (
+                ClarityName::from("minter-bytes"),
+                Value::buff_from(from_hex("1234").to_vec()).unwrap(),
+            ),
+        ])
+        .unwrap();
+        let expected_payload = Value::from(tuple_data).serialize_to_vec();
+
+        let (payload, payload_hash) =
+            get_its_payload_and_hash_receive_from_hub(message_payload).unwrap();
+
+        assert_eq!(payload, expected_payload);
+        assert_eq!(payload_hash, Keccak256::digest(expected_payload).as_slice());
+    }
+
+    fn from_hex(hex: &str) -> nonempty::HexBinary {
+        HexBinary::from_hex(hex).unwrap().try_into().unwrap()
     }
 }

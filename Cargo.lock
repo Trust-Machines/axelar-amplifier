@@ -6516,6 +6516,7 @@ dependencies = [
  "service-registry",
  "service-registry-api",
  "sha3",
+ "stacks-abi-transformer",
  "stacks-clarity",
  "stellar",
  "stellar-xdr",

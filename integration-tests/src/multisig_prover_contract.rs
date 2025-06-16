@@ -55,6 +55,9 @@ impl MultisigProverContract {
                     its_hub_address:
                         "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
                             .to_string(),
+                    stacks_abi_transformer:
+                        "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
+                            .to_string(),
                 },
                 &[],
                 "multisig_prover",

@@ -16,9 +16,9 @@ pub struct DecodeResponse {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(HexBinary)]
-    EncodeToAbi { stacks_payload: HexBinary },
+    #[returns(DecodeResponse)]
+    DecodeReceiveFromHub { abi_payload: HexBinary },
 
     #[returns(DecodeResponse)]
-    DecodeFromAbi { abi_payload: HexBinary },
+    DecodeSendToHub { abi_payload: HexBinary },
 }

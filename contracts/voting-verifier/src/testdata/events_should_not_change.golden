@@ -45,6 +45,10 @@
       {
         "key": "its_hub_address",
         "value": "\"its_hub_address\""
+      },
+      {
+        "key": "stacks_abi_transformer",
+        "value": "\"stacks_abi_transformer\""
       }
     ]
   },

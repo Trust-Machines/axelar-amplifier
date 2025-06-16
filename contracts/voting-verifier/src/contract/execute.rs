@@ -234,7 +234,7 @@ pub fn verify_message_with_payload(
         clarity_payload,
         payload_hash,
     } = stacks_abi_transformer
-        .decode_from_abi(message_payload)
+        .decode_send_to_hub(message_payload)
         .change_context(ContractError::InvalidPayload)?;
 
     message.payload_hash = payload_hash;

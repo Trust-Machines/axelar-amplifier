@@ -25,6 +25,7 @@ pub struct Config {
     pub key_type: KeyType,
     pub domain_separator: Hash,
     pub its_hub_address: Addr,
+    pub stacks_abi_transformer: Addr,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

@@ -1,13 +1,13 @@
+use super::test_data::{self, TestOperator};
 use axelar_wasm_std::{nonempty, VerificationStatus};
 use cosmwasm_std::testing::MockApi;
-use cosmwasm_std::{from_json, to_json_binary, QuerierResult, Uint128, WasmQuery};
+use cosmwasm_std::{from_json, to_json_binary, HexBinary, QuerierResult, Uint128, WasmQuery};
 use multisig::msg::Signer;
 use multisig::multisig::Multisig;
 use multisig::types::MultisigState;
 use multisig::verifier_set::VerifierSet;
 use service_registry_api::{AuthorizationState, BondingState, Verifier, WeightedVerifier};
-
-use super::test_data::{self, TestOperator};
+use stacks_abi_transformer::msg::DecodeResponse;
 
 pub const GATEWAY_ADDRESS: &str = "gateway";
 pub const MULTISIG_ADDRESS: &str = "multisig";
@@ -15,6 +15,7 @@ pub const COORDINATOR_ADDRESS: &str = "coordinator";
 pub const SERVICE_REGISTRY_ADDRESS: &str = "service_registry";
 pub const VOTING_VERIFIER_ADDRESS: &str = "voting_verifier";
 pub const ITS_HUB_ADDRESS: &str = "its_hub";
+pub const STACKS_ABI_TRANSFORMER: &str = "stacks_abi_transformer";
 pub const ADMIN: &str = "admin";
 pub const GOVERNANCE: &str = "governance";
 pub const SERVICE_NAME: &str = "validators";
@@ -49,6 +50,25 @@ pub fn mock_querier_handler(
                     .as_str() =>
         {
             voting_verifier_mock_querier_handler(verifier_set_status)
+        }
+        WasmQuery::Smart { contract_addr, .. }
+            if contract_addr
+                == MockApi::default()
+                    .addr_make(STACKS_ABI_TRANSFORMER)
+                    .as_str() =>
+        {
+            Ok(to_json_binary(&DecodeResponse {
+                clarity_payload: vec![],
+                payload_hash: HexBinary::from_hex(
+                    "ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e",
+                )
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap(),
+            })
+            .into())
+            .into()
         }
         _ => panic!("unexpected query: {:?}", wq),
     }
@@ -85,6 +105,25 @@ pub fn mock_querier_handler_its_hub(
                     .as_str() =>
         {
             voting_verifier_mock_querier_handler(verifier_set_status)
+        }
+        WasmQuery::Smart { contract_addr, .. }
+            if contract_addr
+                == MockApi::default()
+                    .addr_make(STACKS_ABI_TRANSFORMER)
+                    .as_str() =>
+        {
+            Ok(to_json_binary(&DecodeResponse {
+                clarity_payload: vec![],
+                payload_hash: HexBinary::from_hex(
+                    "ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e",
+                )
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap(),
+            })
+            .into())
+            .into()
         }
         _ => panic!("unexpected query: {:?}", wq),
     }

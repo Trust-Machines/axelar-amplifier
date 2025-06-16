@@ -139,6 +139,7 @@ mod test {
     use router_api::{Address, ChainName, CrossChainId, Message};
     use service_registry::{AuthorizationState, BondingState, Verifier, WeightedVerifier};
     use sha3::{Digest, Keccak256, Keccak512};
+    use stacks_abi_transformer::msg::DecodeResponse;
     use starknet_checked_felt::CheckedFelt;
 
     use super::*;
@@ -194,6 +195,7 @@ mod test {
         let mut deps = mock_dependencies();
         let api = deps.api;
         let service_registry = api.addr_make(SERVICE_REGISTRY_ADDRESS);
+        let stacks_abi_transformer = api.addr_make(STACKS_ABI_TRANSFORMER);
 
         instantiate(
             deps.as_mut(),
@@ -214,7 +216,7 @@ mod test {
                 msg_id_format: msg_id_format.clone(),
                 address_format: AddressFormat::Eip55,
                 its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
-                stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).as_str().parse().unwrap(),
+                stacks_abi_transformer: stacks_abi_transformer.as_str().parse().unwrap(),
             },
         )
         .unwrap();
@@ -233,6 +235,22 @@ mod test {
                         })
                         .collect::<Vec<WeightedVerifier>>(),
                 )
+                .into())
+                .into()
+            }
+            WasmQuery::Smart { contract_addr, .. }
+                if contract_addr == stacks_abi_transformer.as_str() =>
+            {
+                Ok(to_json_binary(&DecodeResponse {
+                    clarity_payload: vec![],
+                    payload_hash: HexBinary::from_hex(
+                        "ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e",
+                    )
+                    .unwrap()
+                    .as_slice()
+                    .try_into()
+                    .unwrap(),
+                })
                 .into())
                 .into()
             }
@@ -269,7 +287,11 @@ mod test {
                 msg_id_format: msg_id_format.clone(),
                 address_format: AddressFormat::Stacks,
                 its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
-                stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).as_str().parse().unwrap(),
+                stacks_abi_transformer: api
+                    .addr_make(STACKS_ABI_TRANSFORMER)
+                    .as_str()
+                    .parse()
+                    .unwrap(),
             },
         )
         .unwrap();
@@ -511,7 +533,11 @@ mod test {
                     msg_id_format: MessageIdFormat::HexTxHashAndEventIndex,
                     address_format,
                     its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
-                    stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).as_str().parse().unwrap(),
+                    stacks_abi_transformer: api
+                        .addr_make(STACKS_ABI_TRANSFORMER)
+                        .as_str()
+                        .parse()
+                        .unwrap(),
                 },
             );
 
@@ -2147,7 +2173,6 @@ mod test {
         });
     }
 
-    // TODO: Update tests
     #[test]
     fn should_emit_event_when_verification_succeeds_with_payload() {
         let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;

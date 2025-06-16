@@ -1,5 +1,13 @@
 use std::collections::{BTreeMap, HashSet};
 
+use crate::contract::START_MULTISIG_REPLY_ID;
+use crate::encoding::EncoderExt;
+use crate::error::ContractError;
+use crate::events::Event;
+use crate::payload::Payload;
+use crate::state::{
+    Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
+};
 use axelar_wasm_std::permission_control::Permission;
 use axelar_wasm_std::snapshot::{Participant, Snapshot};
 use axelar_wasm_std::{
@@ -15,16 +23,7 @@ use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, CrossChainId, Message};
 use service_registry_api::WeightedVerifier;
 use sha3::{Digest, Keccak256};
-
-use crate::contract::its::get_its_payload_and_hash;
-use crate::contract::START_MULTISIG_REPLY_ID;
-use crate::encoding::EncoderExt;
-use crate::error::ContractError;
-use crate::events::Event;
-use crate::payload::Payload;
-use crate::state::{
-    Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
-};
+use stacks_abi_transformer::msg::DecodeResponse;
 
 pub const AXELAR_CHAIN_NAME: &str = "axelar";
 
@@ -124,7 +123,15 @@ pub fn construct_proof_with_payload(
         return Err(ContractError::InvalidPayload.into());
     }
 
-    let (its_hub_clarity_payload, payload_hash) = get_its_payload_and_hash(message_payload)?;
+    let stacks_abi_transformer: stacks_abi_transformer::Client =
+        client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
+
+    let DecodeResponse {
+        clarity_payload,
+        payload_hash,
+    } = stacks_abi_transformer
+        .decode_receive_from_hub(message_payload)
+        .change_context(ContractError::InvalidPayload)?;
 
     message.payload_hash = payload_hash;
 
@@ -175,7 +182,7 @@ pub fn construct_proof_with_payload(
     Ok(Response::new()
         .add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID))
         .add_event(Event::ItsHubClarityPayload {
-            payload: its_hub_clarity_payload,
+            payload: clarity_payload,
             payload_hash,
         }))
 }
@@ -661,6 +668,7 @@ mod tests {
             key_type: multisig::key::KeyType::Ecdsa,
             domain_separator: [0; 32],
             its_hub_address: Addr::unchecked("doesn't matter"),
+            stacks_abi_transformer: Addr::unchecked("doesn't matter"),
         }
     }
 }

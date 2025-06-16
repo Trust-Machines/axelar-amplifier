@@ -211,8 +211,6 @@ mod tests {
             signers_with_sigs,
             &payload,
         ));
-
-        // TODO: Assert correct payload?
     }
 
     #[test]
@@ -258,8 +256,6 @@ mod tests {
             signers_with_sigs,
             &payload
         ));
-
-        // TODO: Assert correct payload?
     }
 
     fn signers_with_sigs<'a>(
