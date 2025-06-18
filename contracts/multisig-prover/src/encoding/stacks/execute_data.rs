@@ -13,7 +13,11 @@ use stacks_clarity::vm::types::signatures::{
 };
 use stacks_clarity::vm::types::{TupleData, Value};
 
-use crate::encoding::stacks::{ecdsa_key, encode_messages, payload_digest, WeightedSigners};
+use crate::encoding::stacks::{
+    ecdsa_key, encode_messages, payload_digest, WeightedSigners, CLARITY_MAX_LEN_SIGNATURES,
+    CLARITY_NAME_DATA, CLARITY_NAME_FUNCTION, CLARITY_NAME_PROOF, CLARITY_NAME_SIGNATURES,
+    CLARITY_NAME_SIGNERS, CLARITY_SIZE_SIGNATURES,
+};
 use crate::error::ContractError;
 use crate::payload::Payload;
 
@@ -32,14 +36,10 @@ impl Proof {
     ) -> Result<Self, ContractError> {
         let signers = WeightedSigners::try_from(verifier_set)?;
 
-        let mut signers_with_sigs: Vec<(Vec<u8>, Signature)> = signers_with_sigs
+        let mut signers_with_sigs = signers_with_sigs
             .into_iter()
-            .map(|signer| {
-                let key = ecdsa_key(&signer.signer.pub_key).expect("not ecdsa key");
-
-                (key, signer.signature)
-            })
-            .collect::<Vec<_>>();
+            .map(|signer| ecdsa_key(&signer.signer.pub_key).map(|key| (key, signer.signature)))
+            .collect::<Result<Vec<(Vec<u8>, Signature)>, _>>()?;
 
         signers_with_sigs.sort_by(|signer1, signer2| signer1.0.cmp(&signer2.0));
 
@@ -61,16 +61,17 @@ impl Proof {
             self.signatures,
             ListTypeData::new_list(
                 TypeSignature::SequenceType(SequenceSubtype::BufferType(
-                    BufferLength::try_from(65u32).map_err(|_| ContractError::InvalidMessage)?,
+                    BufferLength::try_from(CLARITY_SIZE_SIGNATURES)
+                        .map_err(|_| ContractError::InvalidMessage)?,
                 )),
-                100,
+                CLARITY_MAX_LEN_SIGNATURES,
             )?,
         )
         .map_err(|_| ContractError::InvalidMessage)?;
 
         let tuple_data = TupleData::from_data(vec![
-            (ClarityName::from("signers"), signers),
-            (ClarityName::from("signatures"), signatures),
+            (ClarityName::from(CLARITY_NAME_SIGNERS), signers),
+            (ClarityName::from(CLARITY_NAME_SIGNATURES), signatures),
         ])?;
 
         Ok(Value::from(tuple_data))
@@ -97,16 +98,16 @@ pub fn encode(
 
             let tuple_data = TupleData::from_data(vec![
                 (
-                    ClarityName::from("function"),
+                    ClarityName::from(CLARITY_NAME_FUNCTION),
                     Value::string_ascii_from_bytes(APPROVE_MESSAGES_FUNCTION.as_bytes().to_vec())
                         .map_err(|_| ContractError::InvalidMessage)?,
                 ),
                 (
-                    ClarityName::from("data"),
+                    ClarityName::from(CLARITY_NAME_DATA),
                     Value::buff_from(messages).map_err(|_| ContractError::InvalidMessage)?,
                 ),
                 (
-                    ClarityName::from("proof"),
+                    ClarityName::from(CLARITY_NAME_PROOF),
                     Value::buff_from(proof).map_err(|_| ContractError::InvalidMessage)?,
                 ),
             ])
@@ -122,17 +123,17 @@ pub fn encode(
 
             let tuple_data = TupleData::from_data(vec![
                 (
-                    ClarityName::from("function"),
+                    ClarityName::from(CLARITY_NAME_FUNCTION),
                     Value::string_ascii_from_bytes(ROTATE_SIGNERS_FUNCTION.as_bytes().to_vec())
                         .map_err(|_| ContractError::InvalidMessage)?,
                 ),
                 (
-                    ClarityName::from("data"),
+                    ClarityName::from(CLARITY_NAME_DATA),
                     Value::buff_from(new_verifier_set)
                         .map_err(|_| ContractError::InvalidMessage)?,
                 ),
                 (
-                    ClarityName::from("proof"),
+                    ClarityName::from(CLARITY_NAME_PROOF),
                     Value::buff_from(proof).map_err(|_| ContractError::InvalidMessage)?,
                 ),
             ])

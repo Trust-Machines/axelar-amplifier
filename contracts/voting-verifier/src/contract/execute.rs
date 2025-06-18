@@ -1,14 +1,5 @@
 use std::collections::HashMap;
 
-use crate::contract::query::{message_status, verifier_set_status};
-use crate::error::ContractError;
-use crate::events::{
-    PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
-    VerifierSetConfirmation, Voted,
-};
-use crate::state::{
-    self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
-};
 use axelar_wasm_std::address::{validate_address, AddressFormat};
 use axelar_wasm_std::utils::TryMapExt;
 use axelar_wasm_std::voting::{PollId, PollResults, Vote, WeightedPoll};
@@ -24,6 +15,16 @@ use router_api::{ChainName, Message};
 use service_registry::WeightedVerifier;
 use sha3::{Digest, Keccak256};
 use stacks_abi_transformer::msg::DecodeResponse;
+
+use crate::contract::query::{message_status, verifier_set_status};
+use crate::error::ContractError;
+use crate::events::{
+    PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
+    VerifierSetConfirmation, Voted,
+};
+use crate::state::{
+    self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
+};
 
 pub const AXELAR_CHAIN_NAME: &str = "axelar";
 

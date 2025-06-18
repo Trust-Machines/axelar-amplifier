@@ -1,7 +1,3 @@
-use crate::contract::its_send_to_hub::{
-    MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
-};
-use crate::error::ContractError;
 use axelar_wasm_std::nonempty;
 use axelar_wasm_std::nonempty::Uint256;
 use cosmwasm_std::{HexBinary, Uint128};
@@ -12,6 +8,11 @@ use sha3::{Digest, Keccak256};
 use stacks_clarity::common::codec::StacksMessageCodec;
 use stacks_clarity::vm::representations::ClarityName;
 use stacks_clarity::vm::types::{TupleData, Value};
+
+use crate::contract::its_send_to_hub::{
+    MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
+};
+use crate::error::ContractError;
 
 pub fn get_its_payload_and_hash_receive_from_hub(
     message_payload: HexBinary,
@@ -172,11 +173,6 @@ fn get_its_deploy_interchain_token_payload_receive_from_hub(
 mod tests {
     use std::str::FromStr;
 
-    use crate::contract::its_receive_from_hub::get_its_payload_and_hash_receive_from_hub;
-    use crate::contract::its_send_to_hub::{
-        MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
-    };
-    use crate::error::ContractError;
     use axelar_wasm_std::nonempty;
     use cosmwasm_std::HexBinary;
     use interchain_token_service as its;
@@ -186,6 +182,12 @@ mod tests {
     use stacks_clarity::common::codec::StacksMessageCodec;
     use stacks_clarity::vm::representations::ClarityName;
     use stacks_clarity::vm::types::{TupleData, Value};
+
+    use crate::contract::its_receive_from_hub::get_its_payload_and_hash_receive_from_hub;
+    use crate::contract::its_send_to_hub::{
+        MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
+    };
+    use crate::error::ContractError;
 
     #[test]
     fn test_get_its_payload_hash_send_to_hub_error() {

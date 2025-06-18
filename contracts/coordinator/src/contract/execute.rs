@@ -200,6 +200,7 @@ fn instantiate_prover(
             // Only for contracts to compile, since coordinator will not support this for Stacks
             its_hub_address: prover_msg.its_hub_address.clone(),
             stacks_abi_transformer: prover_msg.stacks_abi_transformer.clone(),
+            axelar_chain_name: prover_msg.axelar_chain_name.to_string(),
         })
         .change_context(Error::InstantiateProver)?,
         label,

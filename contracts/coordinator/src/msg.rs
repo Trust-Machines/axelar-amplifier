@@ -98,6 +98,7 @@ pub struct ProverMsg {
 
     pub its_hub_address: String,
     pub stacks_abi_transformer: String,
+    pub axelar_chain_name: ChainName,
 }
 
 #[cw_serde]

@@ -9,8 +9,6 @@ use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::{CrossChainId, Message};
 
-use crate::contract::execute::AXELAR_CHAIN_NAME;
-
 pub fn new_verifier_set() -> VerifierSet {
     let signers = vec![
         Signer {
@@ -103,7 +101,7 @@ pub fn messages() -> Vec<Message> {
 pub fn messages_its_hub(its_hub_address: String) -> Vec<Message> {
     vec![Message {
         cc_id: CrossChainId::new(
-            AXELAR_CHAIN_NAME,
+            "axelar",
             "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
         )
         .unwrap(),

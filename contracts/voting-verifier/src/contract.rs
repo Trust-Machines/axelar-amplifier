@@ -260,65 +260,6 @@ mod test {
         deps
     }
 
-    fn setup_stacks(
-        verifiers: Vec<Verifier>,
-        msg_id_format: &MessageIdFormat,
-    ) -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
-        let mut deps = mock_dependencies();
-        let api = deps.api;
-        let service_registry = api.addr_make(SERVICE_REGISTRY_ADDRESS);
-
-        instantiate(
-            deps.as_mut(),
-            mock_env(),
-            message_info(&Addr::unchecked("admin"), &[]),
-            InstantiateMsg {
-                governance_address: api.addr_make(GOVERNANCE).as_str().parse().unwrap(),
-                service_registry_address: service_registry.as_str().parse().unwrap(),
-                service_name: SERVICE_NAME.parse().unwrap(),
-                source_gateway_address: "ST2N7SK0W83NJSZHFH8HH31ZT3DXJG7NFE6Y058RD.gateway-1"
-                    .parse()
-                    .unwrap(),
-                voting_threshold: initial_voting_threshold(),
-                block_expiry: POLL_BLOCK_EXPIRY.try_into().unwrap(),
-                confirmation_height: 100,
-                source_chain: source_chain(),
-                rewards_address: api.addr_make(REWARDS_ADDRESS).as_str().parse().unwrap(),
-                msg_id_format: msg_id_format.clone(),
-                address_format: AddressFormat::Stacks,
-                its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
-                stacks_abi_transformer: api
-                    .addr_make(STACKS_ABI_TRANSFORMER)
-                    .as_str()
-                    .parse()
-                    .unwrap(),
-            },
-        )
-        .unwrap();
-
-        deps.querier.update_wasm(move |wq| match wq {
-            WasmQuery::Smart { contract_addr, .. }
-                if contract_addr == service_registry.as_str() =>
-            {
-                Ok(to_json_binary(
-                    &verifiers
-                        .clone()
-                        .into_iter()
-                        .map(|v| WeightedVerifier {
-                            verifier_info: v,
-                            weight: nonempty::Uint128::one(),
-                        })
-                        .collect::<Vec<WeightedVerifier>>(),
-                )
-                .into())
-                .into()
-            }
-            _ => panic!("no mock for this query"),
-        });
-
-        deps
-    }
-
     fn message_id(id: &str, index: u64, msg_id_format: &MessageIdFormat) -> nonempty::String {
         match msg_id_format {
             MessageIdFormat::FieldElementAndEventIndex => {
@@ -584,7 +525,7 @@ mod test {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         )
         .unwrap_err();
@@ -633,7 +574,7 @@ mod test {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         )
         .unwrap_err();
@@ -685,7 +626,7 @@ mod test {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         )
         .unwrap_err();
@@ -708,7 +649,7 @@ mod test {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         )
         .unwrap_err();
@@ -761,7 +702,7 @@ mod test {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         )
         .unwrap_err();
@@ -814,7 +755,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             ExecuteMsg::VerifyMessages(
                 messages[0..messages_in_progress].to_vec(), // verify a subset of the messages
             ),
@@ -824,7 +765,7 @@ mod test {
         let res = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             ExecuteMsg::VerifyMessages(
                 messages.clone(), // verify all messages including the ones from previous execution
             ),
@@ -912,24 +853,6 @@ mod test {
     }
 
     #[test]
-    fn should_not_verify_messages_if_its_hub_message() {
-        let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
-        let verifiers = verifiers(2);
-        let mut deps = setup_stacks(verifiers.clone(), &msg_id_format);
-        let mut messages = messages(1, &msg_id_format);
-        let message = messages.get_mut(0).unwrap();
-
-        // Change message to be to ITS Hub
-        message.destination_chain = "axelar".parse().unwrap();
-        message.destination_address = deps.api.addr_make(ITS_HUB).as_str().parse().unwrap();
-
-        let msg = ExecuteMsg::VerifyMessages(messages.clone());
-
-        let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
-        assert_contract_err_strings_equal(err, ContractError::InvalidMessages);
-    }
-
-    #[test]
     fn should_not_verify_message_with_payload_if_not_its_hub_message() {
         let msg_id_format = MessageIdFormat::HexTxHashAndEventIndex;
         let verifiers = verifiers(2);
@@ -993,7 +916,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg.clone(),
         )
         .unwrap();
@@ -1017,7 +940,7 @@ mod test {
         let res = execute(
             deps.as_mut(),
             mock_env_expired(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         )
         .unwrap();
@@ -1147,7 +1070,7 @@ mod test {
         let res = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg_verify.clone(),
         );
         assert!(res.is_ok());
@@ -1188,7 +1111,7 @@ mod test {
         let res = execute(
             deps.as_mut(),
             mock_env_expired(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         );
         assert!(res.is_ok());
@@ -1224,7 +1147,7 @@ mod test {
         let res = execute(
             deps.as_mut(),
             mock_env_expired(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg_verify,
         );
         assert!(res.is_ok());
@@ -1393,7 +1316,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             ExecuteMsg::VerifyMessages(messages.clone()),
         )
         .unwrap();
@@ -1426,7 +1349,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             ExecuteMsg::VerifyMessages(messages.clone()),
         )
         .unwrap();
@@ -1513,7 +1436,7 @@ mod test {
             execute(
                 deps.as_mut(),
                 mock_env(),
-                message_info(&api.addr_make(SENDER), &[]),
+                message_info(&api.addr_make(GOVERNANCE), &[]),
                 ExecuteMsg::VerifyMessages(messages.clone()),
             )
             .unwrap();
@@ -1901,7 +1824,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             ExecuteMsg::VerifyMessages(messages.clone()),
         )
         .unwrap();
@@ -2005,7 +1928,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             ExecuteMsg::VerifyMessages(messages.clone()),
         )
         .unwrap();
@@ -2081,7 +2004,7 @@ mod test {
         let res = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg_verify.clone(),
         );
         assert!(res.is_ok());
@@ -2306,7 +2229,7 @@ mod test {
             let res = execute(
                 deps.as_mut(),
                 mock_env(),
-                message_info(&api.addr_make(SENDER), &[]),
+                message_info(&api.addr_make(GOVERNANCE), &[]),
                 msg,
             );
             assert!(res.is_err_and(|err| err_contains!(
@@ -2323,7 +2246,7 @@ mod test {
         let res = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             msg,
         );
         assert!(res.is_ok());

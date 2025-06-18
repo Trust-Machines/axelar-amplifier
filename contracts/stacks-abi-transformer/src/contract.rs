@@ -57,12 +57,13 @@ pub fn query(
 
 #[cfg(test)]
 mod tests {
-    use crate::contract::{instantiate, query};
-    use crate::msg::{InstantiateMsg, QueryMsg};
     use cosmwasm_std::testing::{
         message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{Empty, HexBinary, OwnedDeps};
+
+    use crate::contract::{instantiate, query};
+    use crate::msg::{InstantiateMsg, QueryMsg};
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();

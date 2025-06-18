@@ -23,7 +23,7 @@ pub enum ExecuteMsg {
 
     // returns a vector of true/false values, indicating current verification status for each message
     // starts a poll for any not yet verified messages
-    #[permission(Any)]
+    #[permission(Governance)]
     VerifyMessages(Vec<Message>),
 
     #[permission(Any)]

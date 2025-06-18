@@ -1,4 +1,3 @@
-use super::test_data::{self, TestOperator};
 use axelar_wasm_std::{nonempty, VerificationStatus};
 use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{from_json, to_json_binary, HexBinary, QuerierResult, Uint128, WasmQuery};
@@ -8,6 +7,8 @@ use multisig::types::MultisigState;
 use multisig::verifier_set::VerifierSet;
 use service_registry_api::{AuthorizationState, BondingState, Verifier, WeightedVerifier};
 use stacks_abi_transformer::msg::DecodeResponse;
+
+use super::test_data::{self, TestOperator};
 
 pub const GATEWAY_ADDRESS: &str = "gateway";
 pub const MULTISIG_ADDRESS: &str = "multisig";

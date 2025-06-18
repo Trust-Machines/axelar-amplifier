@@ -26,6 +26,31 @@ const TYPE_ROTATE_SIGNERS: &str = "rotate-signers";
 
 const STACKS_SIGNER_MESSAGE: &str = "Stacks Signed Message";
 
+pub const CLARITY_NAME_SIGNERS: &str = "signers";
+pub const CLARITY_NAME_SIGNATURES: &str = "signatures";
+pub const CLARITY_SIZE_SIGNATURES: u32 = 65;
+pub const CLARITY_MAX_LEN_SIGNATURES: u32 = 100;
+pub const CLARITY_NAME_FUNCTION: &str = "function";
+pub const CLARITY_NAME_DATA: &str = "data";
+pub const CLARITY_NAME_PROOF: &str = "proof";
+
+const CLARITY_NAME_SOURCE_CHAIN: &str = "source-chain";
+const CLARITY_SIZE_SOURCE_CHAIN: u32 = 20;
+const CLARITY_NAME_MESSAGE_ID: &str = "message-id";
+const CLARITY_SIZE_MESSAGE_ID: u32 = 128;
+const CLARITY_NAME_SOURCE_ADDRESS: &str = "source-address";
+const CLARITY_SIZE_SOURCE_ADDRESS: u32 = 128;
+const CLARITY_NAME_CONTRACT_ADDRESS: &str = "contract-address";
+const CLARITY_NAME_PAYLOAD_HASH: &str = "payload-hash";
+const CLARITY_SIZE_PAYLOAD_HASH: u32 = 32;
+const CLARITY_NAME_SIGNER: &str = "signer";
+const CLARITY_SIZE_SIGNER: u32 = 33;
+const CLARITY_NAME_WEIGHT: &str = "weight";
+const CLARITY_NAME_THRESHOLD: &str = "threshold";
+const CLARITY_NAME_NONCE: &str = "nonce";
+const CLARITY_NAME_TYPE: &str = "type";
+const CLARITY_MAX_LEN_MESSAGES: u32 = 10;
+
 #[derive(Debug)]
 pub struct Message {
     pub source_chain: Value,
@@ -61,11 +86,23 @@ impl TryFrom<&RouterMessage> for Message {
 impl Message {
     fn try_into_value(self) -> Result<Value, ContractError> {
         Ok(Value::from(TupleData::from_data(vec![
-            (ClarityName::from("source-chain"), self.source_chain),
-            (ClarityName::from("message-id"), self.message_id),
-            (ClarityName::from("source-address"), self.source_address),
-            (ClarityName::from("contract-address"), self.contract_address),
-            (ClarityName::from("payload-hash"), self.payload_hash),
+            (
+                ClarityName::from(CLARITY_NAME_SOURCE_CHAIN),
+                self.source_chain,
+            ),
+            (ClarityName::from(CLARITY_NAME_MESSAGE_ID), self.message_id),
+            (
+                ClarityName::from(CLARITY_NAME_SOURCE_ADDRESS),
+                self.source_address,
+            ),
+            (
+                ClarityName::from(CLARITY_NAME_CONTRACT_ADDRESS),
+                self.contract_address,
+            ),
+            (
+                ClarityName::from(CLARITY_NAME_PAYLOAD_HASH),
+                self.payload_hash,
+            ),
         ])?))
     }
 }
@@ -121,8 +158,14 @@ impl TryFrom<&VerifierSet> for WeightedSigners {
 impl WeightedSigner {
     fn try_into_value(self) -> Result<Value, ContractError> {
         Ok(Value::from(TupleData::from_data(vec![
-            (ClarityName::from("signer"), Value::buff_from(self.signer)?),
-            (ClarityName::from("weight"), Value::UInt(self.weight)),
+            (
+                ClarityName::from(CLARITY_NAME_SIGNER),
+                Value::buff_from(self.signer)?,
+            ),
+            (
+                ClarityName::from(CLARITY_NAME_WEIGHT),
+                Value::UInt(self.weight),
+            ),
         ])?))
     }
 }
@@ -143,26 +186,32 @@ impl WeightedSigners {
 
         let signer_type_signature = TupleTypeSignature::try_from(vec![
             (
-                ClarityName::from("signer"),
+                ClarityName::from(CLARITY_NAME_SIGNER),
                 TypeSignature::SequenceType(SequenceSubtype::BufferType(BufferLength::try_from(
-                    33u32,
+                    CLARITY_SIZE_SIGNER,
                 )?)),
             ),
-            (ClarityName::from("weight"), TypeSignature::UIntType),
+            (
+                ClarityName::from(CLARITY_NAME_WEIGHT),
+                TypeSignature::UIntType,
+            ),
         ])?;
 
         let tuple_data = TupleData::from_data(vec![
             (
-                ClarityName::from("signers"),
+                ClarityName::from(CLARITY_NAME_SIGNERS),
                 Value::list_with_type(
                     &StacksEpochId::latest(),
                     weighted_signers,
-                    ListTypeData::new_list(TypeSignature::from(signer_type_signature), 100)?,
+                    ListTypeData::new_list(
+                        TypeSignature::from(signer_type_signature),
+                        CLARITY_MAX_LEN_SIGNATURES,
+                    )?,
                 )
                 .map_err(|_| ContractError::InvalidMessage)?,
             ),
-            (ClarityName::from("threshold"), self.threshold),
-            (ClarityName::from("nonce"), self.nonce),
+            (ClarityName::from(CLARITY_NAME_THRESHOLD), self.threshold),
+            (ClarityName::from(CLARITY_NAME_NONCE), self.nonce),
         ])?;
 
         Ok(Value::from(tuple_data))
@@ -221,11 +270,11 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
 
             let tuple_data = TupleData::from_data(vec![
                 (
-                    ClarityName::from("type"),
+                    ClarityName::from(CLARITY_NAME_TYPE),
                     Value::string_ascii_from_bytes(TYPE_APPROVE_MESSAGES.as_bytes().to_vec())
                         .map_err(|_| ContractError::InvalidMessage)?,
                 ),
-                (ClarityName::from("data"), message_value),
+                (ClarityName::from(CLARITY_NAME_DATA), message_value),
             ])?;
 
             Ok(Value::from(tuple_data).serialize_to_vec())
@@ -235,11 +284,11 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
 
             let tuple_data = TupleData::from_data(vec![
                 (
-                    ClarityName::from("type"),
+                    ClarityName::from(CLARITY_NAME_TYPE),
                     Value::string_ascii_from_bytes(TYPE_ROTATE_SIGNERS.as_bytes().to_vec())
                         .map_err(|_| ContractError::InvalidMessage)?,
                 ),
-                (ClarityName::from("data"), signers),
+                (ClarityName::from(CLARITY_NAME_DATA), signers),
             ])?;
 
             Ok(Value::from(tuple_data).serialize_to_vec())
@@ -256,31 +305,31 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
 
     let message_type_signature = TupleTypeSignature::try_from(vec![
         (
-            ClarityName::from("source-chain"),
+            ClarityName::from(CLARITY_NAME_SOURCE_CHAIN),
             TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                BufferLength::try_from(20u32)?,
+                BufferLength::try_from(CLARITY_SIZE_SOURCE_CHAIN)?,
             ))),
         ),
         (
-            ClarityName::from("message-id"),
+            ClarityName::from(CLARITY_NAME_MESSAGE_ID),
             TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                BufferLength::try_from(128u32)?,
+                BufferLength::try_from(CLARITY_SIZE_MESSAGE_ID)?,
             ))),
         ),
         (
-            ClarityName::from("source-address"),
+            ClarityName::from(CLARITY_NAME_SOURCE_ADDRESS),
             TypeSignature::SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
-                BufferLength::try_from(128u32)?,
+                BufferLength::try_from(CLARITY_SIZE_SOURCE_ADDRESS)?,
             ))),
         ),
         (
-            ClarityName::from("contract-address"),
+            ClarityName::from(CLARITY_NAME_CONTRACT_ADDRESS),
             TypeSignature::PrincipalType,
         ),
         (
-            ClarityName::from("payload-hash"),
+            ClarityName::from(CLARITY_NAME_PAYLOAD_HASH),
             TypeSignature::SequenceType(SequenceSubtype::BufferType(BufferLength::try_from(
-                32u32,
+                CLARITY_SIZE_PAYLOAD_HASH,
             )?)),
         ),
     ])?;
@@ -288,7 +337,10 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
     Ok(Value::list_with_type(
         &StacksEpochId::latest(),
         messages,
-        ListTypeData::new_list(TypeSignature::from(message_type_signature), 10)?,
+        ListTypeData::new_list(
+            TypeSignature::from(message_type_signature),
+            CLARITY_MAX_LEN_MESSAGES,
+        )?,
     )
     .map_err(|_| ContractError::InvalidMessages)?)
 }
