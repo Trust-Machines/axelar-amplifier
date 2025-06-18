@@ -25,6 +25,7 @@ pub struct Config {
     pub address_format: AddressFormat,
     pub its_hub_address: Addr,
     pub stacks_abi_transformer: Addr,
+    pub axelar_chain_name: ChainName,
 }
 
 #[cw_serde]

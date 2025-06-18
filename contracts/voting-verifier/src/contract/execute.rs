@@ -26,8 +26,6 @@ use crate::state::{
     self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
 };
 
-pub const AXELAR_CHAIN_NAME: &str = "axelar";
-
 pub fn update_voting_threshold(
     deps: DepsMut,
     new_voting_threshold: MajorityThreshold,
@@ -101,7 +99,7 @@ pub fn verify_messages(
 
     // Error in case we have messages to ITS Hub
     if let Some(_) = messages.iter().find(|msg| {
-        msg.destination_chain == AXELAR_CHAIN_NAME
+        msg.destination_chain == config.axelar_chain_name.as_ref()
             && msg.destination_address.as_str() == config.its_hub_address.as_str()
     }) {
         return Err(ContractError::InvalidMessages.into());
@@ -178,7 +176,7 @@ pub fn verify_message_with_payload(
     let config = CONFIG.load(deps.storage).expect("failed to load config");
 
     // Message needs to be to ITS Hub
-    if message.destination_chain.as_ref() != AXELAR_CHAIN_NAME
+    if message.destination_chain.as_ref() != config.axelar_chain_name.as_ref()
         || message.destination_address.as_str() != config.its_hub_address.as_str()
     {
         return Err(ContractError::InvalidMessage.into());

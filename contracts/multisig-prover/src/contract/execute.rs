@@ -5,9 +5,7 @@ use axelar_wasm_std::snapshot::{Participant, Snapshot};
 use axelar_wasm_std::{
     address, nonempty, permission_control, FnExt, MajorityThreshold, VerificationStatus,
 };
-use cosmwasm_std::{
-    wasm_execute, Addr, DepsMut, Env, HexBinary, QuerierWrapper, Response, Storage, SubMsg,
-};
+use cosmwasm_std::{wasm_execute, Addr, DepsMut, Env, QuerierWrapper, Response, Storage, SubMsg};
 use error_stack::{report, Result, ResultExt};
 use itertools::Itertools;
 use multisig::msg::Signer;
@@ -20,7 +18,8 @@ use stacks_abi_transformer::msg::DecodeResponse;
 use crate::contract::START_MULTISIG_REPLY_ID;
 use crate::encoding::EncoderExt;
 use crate::error::ContractError;
-use crate::events::Event;
+use crate::events::{Event, ClarityPayload};
+use crate::msg::MessageIdWithPayload;
 use crate::payload::Payload;
 use crate::state::{
     Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
@@ -28,45 +27,66 @@ use crate::state::{
 
 pub fn construct_proof_with_payload(
     deps: DepsMut,
-    message_id: CrossChainId,
-    message_payload: HexBinary,
-) -> error_stack::Result<Response, ContractError> {
+    message_ids_with_payloads: Vec<MessageIdWithPayload>,
+) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage).map_err(ContractError::from)?;
 
-    let mut messages = messages(
+    let messages = messages(
         deps.querier,
-        vec![message_id],
+        message_ids_with_payloads
+            .iter()
+            .map(|msg| msg.message_id.clone())
+            .collect(),
         config.gateway.clone(),
         config.chain_name.clone(),
     )?;
-    // It was easier to reuse the above method, we will always have a message here
-    let mut message = messages.remove(0);
-
-    // Message needs to be from ITS Hub
-    if message.cc_id.source_chain.as_ref() != config.axelar_chain_name.as_ref()
-        || message.source_address.as_str() != config.its_hub_address.as_str()
+    // Messages need to be from ITS Hub
+    if messages
+        .iter()
+        .find(|msg| {
+            msg.cc_id.source_chain.as_ref() != config.axelar_chain_name.as_ref()
+                || msg.source_address.as_str() != config.its_hub_address.as_str()
+        })
+        .is_some()
     {
         return Err(ContractError::InvalidMessage.into());
-    }
-
-    // Payload needs to be correct, corresponding to the payload hash
-    if message.payload_hash.as_slice() != Keccak256::digest(&message_payload).as_slice() {
-        return Err(ContractError::InvalidPayload.into());
     }
 
     let stacks_abi_transformer: stacks_abi_transformer::Client =
         client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
 
-    let DecodeResponse {
-        clarity_payload,
-        payload_hash,
-    } = stacks_abi_transformer
-        .decode_receive_from_hub(message_payload)
-        .change_context(ContractError::InvalidPayload)?;
+    let mut clarity_payloads = Vec::new();
+    // Change message payload_hash if needed
+    let payload_messages: Result<Vec<Message>, ContractError> = messages
+        .into_iter()
+        .zip(message_ids_with_payloads)
+        .map(|(mut message, msg_id_with_payload)| {
+            // Payload needs to be correct, corresponding to the payload hash
+            if message.payload_hash.as_slice()
+                != Keccak256::digest(&msg_id_with_payload.payload).as_slice()
+            {
+                return Err(ContractError::InvalidPayload.into());
+            }
 
-    message.payload_hash = payload_hash;
+            let DecodeResponse {
+                clarity_payload, // TODO
+                payload_hash,
+            } = stacks_abi_transformer
+                .decode_receive_from_hub(msg_id_with_payload.payload)
+                .change_context(ContractError::InvalidPayload)?;
 
-    let payload = Payload::Messages(vec![message]);
+            message.payload_hash = payload_hash;
+
+            clarity_payloads.push(ClarityPayload {
+                clarity_payload,
+                payload_hash,
+            });
+
+            Ok(message)
+        })
+        .collect();
+
+    let payload = Payload::Messages(payload_messages?);
     let payload_id = payload.id();
 
     match PAYLOAD
@@ -113,8 +133,7 @@ pub fn construct_proof_with_payload(
     Ok(Response::new()
         .add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID))
         .add_event(Event::ItsHubClarityPayload {
-            payload: clarity_payload,
-            payload_hash,
+            clarity_payloads,
         }))
 }
 

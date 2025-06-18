@@ -1,8 +1,15 @@
 use axelar_wasm_std::IntoEvent;
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint64;
 use router_api::{ChainName, CrossChainId};
 
 use crate::payload::PayloadId;
+
+#[cw_serde]
+pub struct ClarityPayload {
+    pub clarity_payload: Vec<u8>,
+    pub payload_hash: [u8; 32],
+}
 
 #[derive(IntoEvent)]
 pub enum Event {
@@ -13,8 +20,7 @@ pub enum Event {
         msg_ids: Vec<CrossChainId>,
     },
     ItsHubClarityPayload {
-        payload: Vec<u8>,
-        payload_hash: [u8; 32],
+        clarity_payloads: Vec<ClarityPayload>,
     },
 }
 
@@ -65,8 +71,10 @@ mod tests {
         let payload_hash: [u8; 32] = Keccak256::digest(payload.as_slice()).into();
 
         let event = Event::ItsHubClarityPayload {
-            payload: payload.to_vec(),
-            payload_hash,
+            clarity_payloads: vec![ClarityPayload {
+                clarity_payload: payload.to_vec(),
+                payload_hash,
+            }],
         };
 
         assert!(to_string(&cosmwasm_std::Event::from(event)).is_ok());

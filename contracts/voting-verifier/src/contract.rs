@@ -54,6 +54,7 @@ pub fn instantiate(
             deps.api,
             &msg.stacks_abi_transformer,
         )?,
+        axelar_chain_name: msg.axelar_chain_name,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -217,6 +218,7 @@ mod test {
                 address_format: AddressFormat::Eip55,
                 its_hub_address: api.addr_make(ITS_HUB).as_str().parse().unwrap(),
                 stacks_abi_transformer: stacks_abi_transformer.as_str().parse().unwrap(),
+                axelar_chain_name: "axelar".parse().unwrap(),
             },
         )
         .unwrap();
@@ -479,6 +481,7 @@ mod test {
                         .as_str()
                         .parse()
                         .unwrap(),
+                    axelar_chain_name: "axelar".parse().unwrap(),
                 },
             );
 

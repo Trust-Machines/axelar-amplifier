@@ -9,6 +9,12 @@ pub use crate::contract::MigrateMsg;
 use crate::Payload;
 
 #[cw_serde]
+pub struct MessageIdWithPayload {
+    pub message_id: CrossChainId,
+    pub payload: HexBinary,
+}
+
+#[cw_serde]
 #[derive(EnsurePermissions)]
 pub enum ExecuteMsg {
     // Start building a proof that includes specified messages
@@ -16,10 +22,7 @@ pub enum ExecuteMsg {
     #[permission(Any)]
     ConstructProof(Vec<CrossChainId>),
     #[permission(Any)]
-    ConstructProofWithPayload {
-        message_id: CrossChainId,
-        payload: HexBinary,
-    },
+    ConstructProofWithPayload(Vec<MessageIdWithPayload>),
     #[permission(Elevated)]
     UpdateVerifierSet,
 

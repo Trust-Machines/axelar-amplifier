@@ -338,6 +338,7 @@ mod test {
                 .to_string()
                 .try_into()
                 .unwrap(),
+            axelar_chain_name: "axelar".parse().unwrap(),
         };
 
         instantiate(deps, env, info.clone(), msg.clone()).unwrap();

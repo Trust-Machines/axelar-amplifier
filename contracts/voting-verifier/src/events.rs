@@ -31,6 +31,7 @@ impl From<Config> for Vec<Attribute> {
             address_format,
             its_hub_address,
             stacks_abi_transformer,
+            axelar_chain_name,
         } = other;
 
         vec![
@@ -67,6 +68,7 @@ impl From<Config> for Vec<Attribute> {
                 serde_json::to_string(&stacks_abi_transformer)
                     .expect("failed to serialize address_format"),
             ),
+            ("axelar_chain_name", axelar_chain_name.to_string()),
         ]
         .into_iter()
         .map(Attribute::from)
@@ -582,6 +584,7 @@ mod test {
             address_format: AddressFormat::Eip55,
             its_hub_address: Addr::unchecked("its_hub_address"),
             stacks_abi_transformer: Addr::unchecked("stacks_abi_transformer"),
+            axelar_chain_name: "axelar".parse().unwrap(),
         };
         let event_instantiated =
             cosmwasm_std::Event::new("instantiated").add_attributes(<Vec<Attribute>>::from(config));

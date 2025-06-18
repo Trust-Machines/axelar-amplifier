@@ -78,12 +78,9 @@ pub fn execute(
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
     match msg.ensure_permissions(deps.storage, &info.sender)? {
         ExecuteMsg::ConstructProof(_) => unimplemented!(),
-        ExecuteMsg::ConstructProofWithPayload {
-            message_id,
-            payload,
-        } => Ok(execute::construct_proof_with_payload(
-            deps, message_id, payload,
-        )?),
+        ExecuteMsg::ConstructProofWithPayload(messages) => {
+            Ok(execute::construct_proof_with_payload(deps, messages)?)
+        }
         ExecuteMsg::UpdateVerifierSet {} => Ok(execute::update_verifier_set(deps, env)?),
         ExecuteMsg::ConfirmVerifierSet {} => Ok(execute::confirm_verifier_set(deps, info.sender)?),
         ExecuteMsg::UpdateSigningThreshold {
@@ -147,7 +144,7 @@ mod tests {
 
     use super::*;
     use crate::contract::execute::should_update_verifier_set;
-    use crate::msg::{ProofResponse, ProofStatus, VerifierSetResponse};
+    use crate::msg::{MessageIdWithPayload, ProofResponse, ProofStatus, VerifierSetResponse};
     use crate::test::test_data::{self, TestOperator};
     use crate::test::test_utils::{
         mock_querier_handler, mock_querier_handler_its_hub, ADMIN, COORDINATOR_ADDRESS,
@@ -196,7 +193,7 @@ mod tests {
         deps
     }
 
-    pub fn setup_test_case_its_hub() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+    pub fn setup_test_case_its_hub(nb_messages: usize) -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
         let api = deps.api;
 
@@ -207,6 +204,7 @@ mod tests {
             test_data::operators(),
             VerificationStatus::SucceededOnSourceChain,
             its_hub_address.clone(),
+            nb_messages,
         ));
 
         instantiate(
@@ -283,10 +281,10 @@ mod tests {
         message_id: CrossChainId,
         payload: HexBinary,
     ) -> Result<Response, axelar_wasm_std::error::ContractError> {
-        let msg = ExecuteMsg::ConstructProofWithPayload {
+        let msg = ExecuteMsg::ConstructProofWithPayload(vec![MessageIdWithPayload {
             message_id,
             payload: payload.into(),
-        };
+        }]);
         execute(
             deps,
             mock_env(),
@@ -719,7 +717,7 @@ mod tests {
 
     #[test]
     fn test_query_proof_with_payload() {
-        let mut deps = setup_test_case_its_hub();
+        let mut deps = setup_test_case_its_hub(1);
         execute_update_verifier_set(deps.as_mut()).unwrap();
         let payload =
             HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();
@@ -749,7 +747,7 @@ mod tests {
 
     #[test]
     fn test_construct_proof_with_payload() {
-        let mut deps = setup_test_case_its_hub();
+        let mut deps = setup_test_case_its_hub(1);
         execute_update_verifier_set(deps.as_mut()).unwrap();
 
         // Interchain transfer payload
@@ -795,6 +793,50 @@ mod tests {
     }
 
     #[test]
+    fn test_construct_proof_with_payload_multiple() {
+        let mut deps = setup_test_case_its_hub(2);
+        execute_update_verifier_set(deps.as_mut()).unwrap();
+
+        // Interchain transfer payload
+        let payload =
+            HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();
+
+        let msg = ExecuteMsg::ConstructProofWithPayload(vec![
+            MessageIdWithPayload {
+                message_id: CrossChainId::new(
+                    "axelar",
+                    "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
+                )
+                .unwrap(),
+                payload: payload.clone().into(),
+            },
+            MessageIdWithPayload {
+                message_id: CrossChainId::new(
+                    "axelar",
+                    "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-1", // other message id
+                )
+                .unwrap(),
+                payload: payload.clone().into(),
+            },
+        ]);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            message_info(&Addr::unchecked(RELAYER), &[]),
+            msg,
+        )
+        .unwrap();
+        let res = reply_construct_proof(deps.as_mut()).unwrap();
+
+        let event = res
+            .events
+            .iter()
+            .find(|event| event.ty == "proof_under_construction");
+
+        assert!(event.is_some());
+    }
+
+    #[test]
     fn test_construct_proof_with_payload_non_its_hub_messages_should_fail() {
         let mut deps = setup_test_case();
         execute_update_verifier_set(deps.as_mut()).unwrap();
@@ -821,7 +863,7 @@ mod tests {
 
     #[test]
     fn test_construct_proof_with_payload_wrong_payload() {
-        let mut deps = setup_test_case_its_hub();
+        let mut deps = setup_test_case_its_hub(1);
         execute_update_verifier_set(deps.as_mut()).unwrap();
 
         let payload =
@@ -846,7 +888,7 @@ mod tests {
 
     #[test]
     fn test_construct_proof_with_payload_no_verifier_set() {
-        let mut deps = setup_test_case_its_hub();
+        let mut deps = setup_test_case_its_hub(1);
 
         let payload =
             HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();

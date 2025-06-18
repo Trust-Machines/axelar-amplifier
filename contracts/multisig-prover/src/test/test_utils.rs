@@ -79,12 +79,13 @@ pub fn mock_querier_handler_its_hub(
     operators: Vec<TestOperator>,
     verifier_set_status: VerificationStatus,
     its_hub_address: String,
+    nb_messages: usize,
 ) -> impl Fn(&WasmQuery) -> QuerierResult {
     move |wq: &WasmQuery| match wq {
         WasmQuery::Smart { contract_addr, .. }
             if contract_addr == MockApi::default().addr_make(GATEWAY_ADDRESS).as_str() =>
         {
-            gateway_mock_querier_handler_its_hub(its_hub_address.clone())
+            gateway_mock_querier_handler_its_hub(its_hub_address.clone(), nb_messages)
         }
         WasmQuery::Smart { contract_addr, msg }
             if contract_addr == MockApi::default().addr_make(MULTISIG_ADDRESS).as_str() =>
@@ -134,8 +135,8 @@ fn gateway_mock_querier_handler() -> QuerierResult {
     Ok(to_json_binary(&test_data::messages()).into()).into()
 }
 
-fn gateway_mock_querier_handler_its_hub(its_hub_address: String) -> QuerierResult {
-    Ok(to_json_binary(&test_data::messages_its_hub(its_hub_address)).into()).into()
+fn gateway_mock_querier_handler_its_hub(its_hub_address: String, nb_messages: usize) -> QuerierResult {
+    Ok(to_json_binary(&test_data::messages_its_hub(its_hub_address, nb_messages)).into()).into()
 }
 
 fn multisig_mock_querier_handler(

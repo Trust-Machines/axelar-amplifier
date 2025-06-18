@@ -34,4 +34,6 @@ pub struct InstantiateMsg {
     pub its_hub_address: String,
     /// Address of the Stacks ABI Transformer contract
     pub stacks_abi_transformer: String,
+    /// The Axelar chain name.
+    pub axelar_chain_name: ChainName,
 }
