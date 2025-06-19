@@ -10,6 +10,12 @@ pub use voting_verifier_api::msg::InstantiateMsg;
 pub use crate::contract::MigrateMsg;
 
 #[cw_serde]
+pub struct MessageWithPayload {
+    pub message: Message,
+    pub payload: HexBinary,
+}
+
+#[cw_serde]
 #[derive(EnsurePermissions)]
 pub enum ExecuteMsg {
     // Computes the results of a poll
@@ -27,10 +33,7 @@ pub enum ExecuteMsg {
     VerifyMessages(Vec<Message>),
 
     #[permission(Any)]
-    VerifyMessageWithPayload {
-        message: Message,
-        payload: HexBinary,
-    },
+    VerifyMessageWithPayload(Vec<MessageWithPayload>),
 
     // Starts a poll to confirm a verifier set update on the external gateway
     #[permission(Any)]

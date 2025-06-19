@@ -18,7 +18,7 @@ use stacks_abi_transformer::msg::DecodeResponse;
 use crate::contract::START_MULTISIG_REPLY_ID;
 use crate::encoding::EncoderExt;
 use crate::error::ContractError;
-use crate::events::{Event, ClarityPayload};
+use crate::events::{ClarityPayload, Event};
 use crate::msg::MessageIdWithPayload;
 use crate::payload::Payload;
 use crate::state::{
@@ -132,9 +132,7 @@ pub fn construct_proof_with_payload(
 
     Ok(Response::new()
         .add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID))
-        .add_event(Event::ItsHubClarityPayload {
-            clarity_payloads,
-        }))
+        .add_event(Event::ItsHubClarityPayload { clarity_payloads }))
 }
 
 fn messages(

@@ -193,7 +193,9 @@ mod tests {
         deps
     }
 
-    pub fn setup_test_case_its_hub(nb_messages: usize) -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+    pub fn setup_test_case_its_hub(
+        nb_messages: usize,
+    ) -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
         let api = deps.api;
 

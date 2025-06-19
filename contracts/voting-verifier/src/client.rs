@@ -6,7 +6,7 @@ use error_stack::ResultExt;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
 
-use crate::msg::{ExecuteMsg, MessageStatus, PollResponse, QueryMsg};
+use crate::msg::{ExecuteMsg, MessageStatus, MessageWithPayload, PollResponse, QueryMsg};
 
 type Result<T> = error_stack::Result<T, Error>;
 
@@ -52,7 +52,9 @@ impl Client<'_> {
 
     pub fn verify_message_with_payload(&self, message: Message, payload: HexBinary) -> CosmosMsg {
         self.client
-            .execute(&ExecuteMsg::VerifyMessageWithPayload { message, payload })
+            .execute(&ExecuteMsg::VerifyMessageWithPayload(vec![
+                MessageWithPayload { message, payload },
+            ]))
     }
 
     pub fn vote(&self, poll_id: PollId, votes: Vec<Vote>) -> CosmosMsg {

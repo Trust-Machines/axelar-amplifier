@@ -85,6 +85,12 @@ pub struct PollMetadata {
     pub participants: Vec<Addr>,
 }
 
+#[cw_serde]
+pub struct ClarityPayload {
+    pub clarity_payload: Vec<u8>,
+    pub payload_hash: [u8; 32],
+}
+
 pub enum PollStarted {
     Messages {
         messages: Vec<TxEventConfirmation>,
@@ -95,8 +101,7 @@ pub enum PollStarted {
         metadata: PollMetadata,
     },
     ItsHubClarityPayload {
-        payload: Vec<u8>,
-        payload_hash: [u8; 32],
+        clarity_payloads: Vec<ClarityPayload>,
     },
 }
 
@@ -148,20 +153,13 @@ impl From<PollStarted> for Event {
                         .expect("failed to serialize verifier set confirmation"),
                 )
                 .add_attributes(Vec::<_>::from(metadata)),
-            PollStarted::ItsHubClarityPayload {
-                payload,
-                payload_hash,
-            } => Event::new("its_hub_clarity_payload")
-                .add_attribute(
-                    "payload",
-                    serde_json::to_string(&payload)
-                        .expect("violated invariant: payload is not serializable"),
+            PollStarted::ItsHubClarityPayload { clarity_payloads } => {
+                Event::new("its_hub_clarity_payload").add_attribute(
+                    "clarity_payloads",
+                    serde_json::to_string(&clarity_payloads)
+                        .expect("failed to serialize clarity payloads"),
                 )
-                .add_attribute(
-                    "payload_hash",
-                    serde_json::to_string(&payload_hash)
-                        .expect("violated invariant: payload_hash is not serializable"),
-                ),
+            }
         }
     }
 }
@@ -385,7 +383,7 @@ mod test {
     use serde_json::{json, to_string};
     use sha3::{Digest, Keccak256};
 
-    use super::{TxEventConfirmation, VerifierSetConfirmation};
+    use super::{ClarityPayload, TxEventConfirmation, VerifierSetConfirmation};
     use crate::events::{PollEnded, PollMetadata, PollStarted, QuorumReached, Voted};
     use crate::state::Config;
 
@@ -690,8 +688,10 @@ mod test {
         let payload_hash: [u8; 32] = Keccak256::digest(payload.as_slice()).into();
 
         let event = PollStarted::ItsHubClarityPayload {
-            payload: payload.to_vec(),
-            payload_hash,
+            clarity_payloads: vec![ClarityPayload {
+                clarity_payload: payload.to_vec(),
+                payload_hash,
+            }],
         };
 
         assert!(to_string(&cosmwasm_std::Event::from(event)).is_ok());

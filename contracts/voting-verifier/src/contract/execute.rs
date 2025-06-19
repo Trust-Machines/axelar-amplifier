@@ -19,9 +19,10 @@ use stacks_abi_transformer::msg::DecodeResponse;
 use crate::contract::query::{message_status, verifier_set_status};
 use crate::error::ContractError;
 use crate::events::{
-    PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
+    ClarityPayload, PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
     VerifierSetConfirmation, Voted,
 };
+use crate::msg::MessageWithPayload;
 use crate::state::{
     self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
 };
@@ -170,44 +171,56 @@ pub fn verify_messages(
 pub fn verify_message_with_payload(
     deps: DepsMut,
     env: Env,
-    message: Message,
-    message_payload: HexBinary,
+    messages_with_payloads: Vec<MessageWithPayload>,
 ) -> Result<Response, ContractError> {
+    if messages_with_payloads.is_empty() {
+        return Err(report!(ContractError::EmptyMessages));
+    }
+
     let config = CONFIG.load(deps.storage).expect("failed to load config");
 
-    // Message needs to be to ITS Hub
-    if message.destination_chain.as_ref() != config.axelar_chain_name.as_ref()
-        || message.destination_address.as_str() != config.its_hub_address.as_str()
-    {
-        return Err(ContractError::InvalidMessage.into());
-    }
+    let messages = messages_with_payloads.try_map(|message_with_payload| {
+        // Message needs to be to ITS Hub
+        if message_with_payload.message.destination_chain.as_ref()
+            != config.axelar_chain_name.as_ref()
+            || message_with_payload.message.destination_address.as_str()
+                != config.its_hub_address.as_str()
+        {
+            return Err(ContractError::InvalidMessage.into());
+        }
 
-    // Payload needs to be correct, corresponding to the payload hash
-    if message.payload_hash.as_slice() != Keccak256::digest(&message_payload).as_slice() {
-        return Err(ContractError::InvalidPayload.into());
-    }
+        // Payload needs to be correct, corresponding to the payload hash
+        if message_with_payload.message.payload_hash.as_slice()
+            != Keccak256::digest(&message_with_payload.payload).as_slice()
+        {
+            return Err(ContractError::InvalidPayload.into());
+        }
 
-    let message = validate_source_chain(message, &config.source_chain)
-        .and_then(|message| validate_source_address(message, &config.address_format))
-        .and_then(|message| {
-            message_status(deps.as_ref(), &message, env.block.height)
-                .map(|status| (status, message))
-        })?;
+        validate_source_chain(message_with_payload.message, &config.source_chain)
+            .and_then(|message| validate_source_address(message, &config.address_format))
+            .and_then(|message| {
+                message_status(deps.as_ref(), &message, env.block.height)
+                    .map(|status| (status, message, message_with_payload.payload))
+            })
+    })?;
 
-    let msg_to_verify = match message.0 {
-        VerificationStatus::NotFoundOnSourceChain
-        | VerificationStatus::FailedToVerify
-        | VerificationStatus::Unknown => Some(message.1),
-        VerificationStatus::InProgress
-        | VerificationStatus::SucceededOnSourceChain
-        | VerificationStatus::FailedOnSourceChain => None,
-    };
+    let msgs_to_verify_with_payloads: Vec<(Message, HexBinary)> = messages
+        .into_iter()
+        .filter_map(|(status, message, payload)| match status {
+            VerificationStatus::NotFoundOnSourceChain
+            | VerificationStatus::FailedToVerify
+            | VerificationStatus::Unknown => Some((message, payload)),
+            VerificationStatus::InProgress
+            | VerificationStatus::SucceededOnSourceChain
+            | VerificationStatus::FailedOnSourceChain => None,
+        })
+        .collect();
 
-    if msg_to_verify.is_none() {
+    if msgs_to_verify_with_payloads.is_empty() {
         return Ok(Response::new());
     }
 
-    let message = msg_to_verify.unwrap();
+    // let message = msg_to_verify.unwrap();
 
     let snapshot = take_snapshot(deps.as_ref(), &config.source_chain)?;
     let participants = snapshot.participants();
@@ -215,32 +228,45 @@ pub fn verify_message_with_payload(
 
     let id = create_messages_poll(deps.storage, expires_at, snapshot, 1)?;
 
-    poll_messages()
-        .save(
-            deps.storage,
-            &message.hash(),
-            &state::PollContent::<Message>::new(message.clone(), id, 0),
-        )
-        .change_context(ContractError::StorageError)?;
-
-    let mut message = TxEventConfirmation::try_from((message.clone(), &config.msg_id_format))
-        .map_err(|err| report!(err))?;
+    for (idx, (message, _)) in msgs_to_verify_with_payloads.iter().enumerate() {
+        poll_messages()
+            .save(
+                deps.storage,
+                &message.hash(),
+                &state::PollContent::<Message>::new(message.clone(), id, idx),
+            )
+            .change_context(ContractError::StorageError)?;
+    }
 
     let stacks_abi_transformer: stacks_abi_transformer::Client =
         client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
 
-    let DecodeResponse {
-        clarity_payload,
-        payload_hash,
-    } = stacks_abi_transformer
-        .decode_send_to_hub(message_payload)
-        .change_context(ContractError::InvalidPayload)?;
+    let mut clarity_payloads = Vec::new();
+    let messages = msgs_to_verify_with_payloads
+        .into_iter()
+        .map(|(mut msg, payload)| {
+            let DecodeResponse {
+                clarity_payload,
+                payload_hash,
+            } = stacks_abi_transformer
+                .decode_send_to_hub(payload)
+                .change_context(ContractError::InvalidPayload)?;
 
-    message.payload_hash = payload_hash;
+            // payload_hash needs to be changed only for event to Ampd, because Gateway RouteMessages will still be called with old payload_hash
+            msg.payload_hash = payload_hash;
+
+            clarity_payloads.push(ClarityPayload {
+                clarity_payload,
+                payload_hash,
+            });
+
+            TxEventConfirmation::try_from((msg, &config.msg_id_format)).map_err(|err| report!(err))
+        })
+        .collect::<Result<Vec<TxEventConfirmation>, _>>()?;
 
     Ok(Response::new()
         .add_event(PollStarted::Messages {
-            messages: vec![message],
+            messages,
             metadata: PollMetadata {
                 poll_id: id,
                 source_chain: config.source_chain,
@@ -250,10 +276,7 @@ pub fn verify_message_with_payload(
                 participants,
             },
         })
-        .add_event(PollStarted::ItsHubClarityPayload {
-            payload: clarity_payload,
-            payload_hash,
-        }))
+        .add_event(PollStarted::ItsHubClarityPayload { clarity_payloads }))
 }
 
 fn poll_results(poll: &Poll) -> PollResults {
