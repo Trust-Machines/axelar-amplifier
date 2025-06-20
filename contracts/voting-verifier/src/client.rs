@@ -1,7 +1,7 @@
 use axelar_wasm_std::vec::VecExt;
 use axelar_wasm_std::voting::{PollId, Vote};
 use axelar_wasm_std::{nonempty, MajorityThreshold, VerificationStatus};
-use cosmwasm_std::{CosmosMsg, HexBinary};
+use cosmwasm_std::CosmosMsg;
 use error_stack::ResultExt;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
@@ -50,11 +50,14 @@ impl Client<'_> {
             .map(|messages| self.client.execute(&ExecuteMsg::VerifyMessages(messages)))
     }
 
-    pub fn verify_message_with_payload(&self, message: Message, payload: HexBinary) -> CosmosMsg {
-        self.client
-            .execute(&ExecuteMsg::VerifyMessageWithPayload(vec![
-                MessageWithPayload { message, payload },
-            ]))
+    pub fn verify_message_with_payload(
+        &self,
+        messages: Vec<MessageWithPayload>,
+    ) -> Option<CosmosMsg> {
+        messages.to_none_if_empty().map(|messages| {
+            self.client
+                .execute(&ExecuteMsg::VerifyMessageWithPayload(messages))
+        })
     }
 
     pub fn vote(&self, poll_id: PollId, votes: Vec<Vote>) -> CosmosMsg {
