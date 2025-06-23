@@ -27,11 +27,8 @@ pub const CLARITY_NAME_DECIMALS: &str = "decimals";
 const CLARITY_NAME_MINTER_BYTES: &str = "minter-bytes";
 
 pub fn get_its_payload_and_hash_receive_from_hub(
-    message_payload: HexBinary,
+    its_hub_message: HubMessage,
 ) -> Result<(Vec<u8>, [u8; 32]), ContractError> {
-    let its_hub_message = its::HubMessage::abi_decode(message_payload.as_slice())
-        .map_err(|_| ContractError::InvalidPayload)?;
-
     let payload = match its_hub_message {
         HubMessage::SendToHub { .. } => Err(ContractError::InvalidPayload),
         HubMessage::ReceiveFromHub {
@@ -211,7 +208,7 @@ mod tests {
     fn test_get_its_payload_hash_send_to_hub_error() {
         let token_id: [u8; 32] = Keccak256::digest(vec![]).into();
 
-        let message_payload = its::HubMessage::SendToHub {
+        let its_hub_message = its::HubMessage::SendToHub {
             destination_chain: ChainNameRaw::from_str("chain").unwrap(),
             message: its::Message::DeployInterchainToken(its::DeployInterchainToken {
                 token_id: TokenId::new(token_id),
@@ -220,10 +217,9 @@ mod tests {
                 decimals: 18,
                 minter: None,
             }),
-        }
-        .abi_encode();
+        };
 
-        let res = get_its_payload_and_hash_receive_from_hub(message_payload);
+        let res = get_its_payload_and_hash_receive_from_hub(its_hub_message);
 
         assert!(res.is_err());
         assert_eq!(
@@ -236,7 +232,7 @@ mod tests {
     fn test_get_its_payload_hash_interchain_transfer_receive_from_hub() {
         let token_id: [u8; 32] = Keccak256::digest(vec![1, 2, 3]).into();
 
-        let message_payload = its::HubMessage::ReceiveFromHub {
+        let its_hub_message = its::HubMessage::ReceiveFromHub {
             source_chain: ChainNameRaw::from_str("chain").unwrap(),
             message: its::Message::InterchainTransfer(its::InterchainTransfer {
                 token_id: token_id.into(),
@@ -245,11 +241,10 @@ mod tests {
                 amount: 1u64.try_into().unwrap(),
                 data: Some(from_hex("1234")),
             }),
-        }
-        .abi_encode();
+        };
 
         let (payload, payload_hash) =
-            get_its_payload_and_hash_receive_from_hub(message_payload).unwrap();
+            get_its_payload_and_hash_receive_from_hub(its_hub_message).unwrap();
 
         let tuple_data = TupleData::from_data(vec![
             (
@@ -289,7 +284,7 @@ mod tests {
     fn test_get_its_payload_hash_deploy_interchain_token_payload_receive_from_hub() {
         let token_id: [u8; 32] = Keccak256::digest(vec![]).into();
 
-        let message_payload = its::HubMessage::ReceiveFromHub {
+        let its_hub_message = its::HubMessage::ReceiveFromHub {
             source_chain: ChainNameRaw::from_str("chain").unwrap(),
             message: its::Message::DeployInterchainToken(its::DeployInterchainToken {
                 token_id: token_id.into(),
@@ -298,8 +293,7 @@ mod tests {
                 decimals: 18,
                 minter: Some(from_hex("1234")),
             }),
-        }
-        .abi_encode();
+        };
 
         let tuple_data = TupleData::from_data(vec![
             (
@@ -332,7 +326,7 @@ mod tests {
         let expected_payload = Value::from(tuple_data).serialize_to_vec();
 
         let (payload, payload_hash) =
-            get_its_payload_and_hash_receive_from_hub(message_payload).unwrap();
+            get_its_payload_and_hash_receive_from_hub(its_hub_message).unwrap();
 
         assert_eq!(payload, expected_payload);
         assert_eq!(payload_hash, Keccak256::digest(expected_payload).as_slice());

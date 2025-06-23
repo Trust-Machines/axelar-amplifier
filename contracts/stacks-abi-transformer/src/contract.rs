@@ -45,11 +45,18 @@ pub fn query(
     msg: QueryMsg,
 ) -> Result<Binary, axelar_wasm_std::error::ContractError> {
     match msg {
+        // TODO: Remove these other message types
         QueryMsg::DecodeReceiveFromHub { abi_payload } => {
             to_json_binary(&query::decode_receive_from_hub(abi_payload)?)
         }
         QueryMsg::DecodeSendToHub { abi_payload } => {
             to_json_binary(&query::decode_send_to_hub(abi_payload)?)
+        }
+        QueryMsg::FromBytes { .. } => {
+            todo!()
+        }
+        QueryMsg::ToBytes { message } => {
+            to_json_binary(&query::hub_message_to_clarity_bytes(message)?)
         }
     }?
     .then(Ok)
@@ -57,13 +64,13 @@ pub fn query(
 
 #[cfg(test)]
 mod tests {
+    use crate::contract::{instantiate, query};
+    use crate::msg::{InstantiateMsg, QueryMsg};
     use cosmwasm_std::testing::{
         message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{Empty, HexBinary, OwnedDeps};
-
-    use crate::contract::{instantiate, query};
-    use crate::msg::{InstantiateMsg, QueryMsg};
+    use interchain_token_service::HubMessage;
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
@@ -108,6 +115,20 @@ mod tests {
             mock_env(),
             QueryMsg::DecodeSendToHub { abi_payload },
         );
+
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_query_to_bytes() {
+        let deps = setup();
+
+        let abi_payload =
+            HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap();
+
+        let message = HubMessage::abi_decode(abi_payload.as_slice()).unwrap();
+
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::ToBytes { message });
 
         assert!(res.is_ok());
     }

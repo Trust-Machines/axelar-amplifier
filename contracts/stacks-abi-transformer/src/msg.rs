@@ -21,4 +21,12 @@ pub enum QueryMsg {
 
     #[returns(DecodeResponse)]
     DecodeSendToHub { abi_payload: HexBinary },
+
+    #[returns(interchain_token_service::HubMessage)]
+    FromBytes { payload: HexBinary },
+
+    #[returns(HexBinary)]
+    ToBytes {
+        message: interchain_token_service::HubMessage,
+    },
 }

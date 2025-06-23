@@ -1,7 +1,6 @@
+use crate::msg::{DecodeResponse, ExecuteMsg, QueryMsg};
 use cosmwasm_std::HexBinary;
 use error_stack::ResultExt;
-
-use crate::msg::{DecodeResponse, ExecuteMsg, QueryMsg};
 
 type Result<T> = error_stack::Result<T, Error>;
 
@@ -13,6 +12,10 @@ pub enum Error {
     DecodeReceiveFromHub(HexBinary),
     #[error("failed to query stacks abi transformer decode send to hub. abi payload: {0}")]
     DecodeSendToHub(HexBinary),
+    #[error("failed to convert clarity payload to abi: {0}")]
+    FromBytes(HexBinary),
+    #[error("failed to convert abi payload to clarity: {0}")]
+    ToBytes(HexBinary),
 }
 
 impl From<QueryMsg> for Error {
@@ -22,6 +25,8 @@ impl From<QueryMsg> for Error {
                 Error::DecodeReceiveFromHub(abi_payload)
             }
             QueryMsg::DecodeSendToHub { abi_payload } => Error::DecodeSendToHub(abi_payload),
+            QueryMsg::FromBytes { payload } => Error::FromBytes(payload),
+            QueryMsg::ToBytes { message } => Error::ToBytes(message.abi_encode()),
         }
     }
 }
