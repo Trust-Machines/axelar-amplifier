@@ -10,6 +10,7 @@ mod its_receive_from_hub;
 mod its_send_to_hub;
 mod migrations;
 mod query;
+mod its_clarity_bytes_to_hub_message;
 
 pub use migrations::{migrate, MigrateMsg};
 
@@ -52,8 +53,8 @@ pub fn query(
         QueryMsg::DecodeSendToHub { abi_payload } => {
             to_json_binary(&query::decode_send_to_hub(abi_payload)?)
         }
-        QueryMsg::FromBytes { .. } => {
-            todo!()
+        QueryMsg::FromBytes { payload } => {
+            to_json_binary(&query::clarity_bytes_to_hub_message(payload)?)
         }
         QueryMsg::ToBytes { message } => {
             to_json_binary(&query::hub_message_to_clarity_bytes(message)?)

@@ -19,9 +19,9 @@ pub const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
 pub const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
 const MESSAGE_TYPE_SEND_TO_HUB: u128 = 3;
 
-const CLARITY_NAME_DESTINATION_CHAIN: &str = "destination-chain";
-const CLARITY_NAME_PAYLOAD: &str = "payload";
-const CLARITY_NAME_MINTER: &str = "minter";
+pub const CLARITY_NAME_DESTINATION_CHAIN: &str = "destination-chain";
+pub const CLARITY_NAME_PAYLOAD: &str = "payload";
+pub const CLARITY_NAME_MINTER: &str = "minter";
 
 pub fn get_its_payload_and_hash_send_to_hub(
     message_payload: HexBinary,
