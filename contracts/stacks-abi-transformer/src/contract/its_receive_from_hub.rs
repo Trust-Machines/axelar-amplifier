@@ -14,6 +14,18 @@ use crate::contract::its_send_to_hub::{
 };
 use crate::error::ContractError;
 
+pub const CLARITY_NAME_TYPE: &str = "type";
+const CLARITY_NAME_SOURCE_CHAIN: &str = "source-chain";
+pub const CLARITY_NAME_TOKEN_ID: &str = "token-id";
+pub const CLARITY_NAME_SOURCE_ADDRESS: &str = "source-address";
+pub const CLARITY_NAME_DESTINATION_ADDRESS: &str = "destination-address";
+pub const CLARITY_NAME_AMOUNT: &str = "amount";
+pub const CLARITY_NAME_DATA: &str = "data";
+pub const CLARITY_NAME_NAME: &str = "name";
+pub const CLARITY_NAME_SYMBOL: &str = "symbol";
+pub const CLARITY_NAME_DECIMALS: &str = "decimals";
+const CLARITY_NAME_MINTER_BYTES: &str = "minter-bytes";
+
 pub fn get_its_payload_and_hash_receive_from_hub(
     message_payload: HexBinary,
 ) -> Result<(Vec<u8>, [u8; 32]), ContractError> {
@@ -84,30 +96,33 @@ fn get_its_interchain_transfer_payload_receive_from_hub(
 
     let tuple_data = TupleData::from_data(vec![
         (
-            ClarityName::from("type"),
+            ClarityName::from(CLARITY_NAME_TYPE),
             Value::UInt(MESSAGE_TYPE_INTERCHAIN_TRANSFER),
         ),
         (
-            ClarityName::from("source-chain"),
+            ClarityName::from(CLARITY_NAME_SOURCE_CHAIN),
             Value::string_ascii_from_bytes(source_chain.to_string().into_bytes())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("token-id"),
+            ClarityName::from(CLARITY_NAME_TOKEN_ID),
             Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("source-address"),
+            ClarityName::from(CLARITY_NAME_SOURCE_ADDRESS),
             Value::buff_from(source_address.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("destination-address"),
+            ClarityName::from(CLARITY_NAME_DESTINATION_ADDRESS),
             Value::buff_from(destination_address.to_vec())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
-        (ClarityName::from("amount"), Value::UInt(amount.u128())),
         (
-            ClarityName::from("data"),
+            ClarityName::from(CLARITY_NAME_AMOUNT),
+            Value::UInt(amount.u128()),
+        ),
+        (
+            ClarityName::from(CLARITY_NAME_DATA),
             Value::buff_from(if let Some(data) = data {
                 data.to_vec()
             } else {
@@ -132,31 +147,34 @@ fn get_its_deploy_interchain_token_payload_receive_from_hub(
 
     let tuple_data = TupleData::from_data(vec![
         (
-            ClarityName::from("type"),
+            ClarityName::from(CLARITY_NAME_TYPE),
             Value::UInt(MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN),
         ),
         (
-            ClarityName::from("source-chain"),
+            ClarityName::from(CLARITY_NAME_SOURCE_CHAIN),
             Value::string_ascii_from_bytes(source_chain.to_string().into_bytes())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("token-id"),
+            ClarityName::from(CLARITY_NAME_TOKEN_ID),
             Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("name"),
+            ClarityName::from(CLARITY_NAME_NAME),
             Value::string_ascii_from_bytes(name.into_bytes())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("symbol"),
+            ClarityName::from(CLARITY_NAME_SYMBOL),
             Value::string_ascii_from_bytes(symbol.into_bytes())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
-        (ClarityName::from("decimals"), Value::UInt(decimals.into())),
         (
-            ClarityName::from("minter-bytes"),
+            ClarityName::from(CLARITY_NAME_DECIMALS),
+            Value::UInt(decimals.into()),
+        ),
+        (
+            ClarityName::from(CLARITY_NAME_MINTER_BYTES),
             Value::buff_from(if let Some(minter) = minter {
                 minter.to_vec()
             } else {

@@ -8,11 +8,20 @@ use stacks_clarity::common::codec::StacksMessageCodec;
 use stacks_clarity::vm::representations::ClarityName;
 use stacks_clarity::vm::types::{PrincipalData, TupleData, Value};
 
+use crate::contract::its_receive_from_hub::{
+    CLARITY_NAME_AMOUNT, CLARITY_NAME_DATA, CLARITY_NAME_DECIMALS,
+    CLARITY_NAME_DESTINATION_ADDRESS, CLARITY_NAME_NAME, CLARITY_NAME_SOURCE_ADDRESS,
+    CLARITY_NAME_SYMBOL, CLARITY_NAME_TOKEN_ID, CLARITY_NAME_TYPE,
+};
 use crate::error::ContractError;
 
 pub const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
 pub const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
 const MESSAGE_TYPE_SEND_TO_HUB: u128 = 3;
+
+const CLARITY_NAME_DESTINATION_CHAIN: &str = "destination-chain";
+const CLARITY_NAME_PAYLOAD: &str = "payload";
+const CLARITY_NAME_MINTER: &str = "minter";
 
 pub fn get_its_payload_and_hash_send_to_hub(
     message_payload: HexBinary,
@@ -58,16 +67,16 @@ pub fn get_its_payload_and_hash_send_to_hub(
 
             let tuple_data = TupleData::from_data(vec![
                 (
-                    ClarityName::from("type"),
+                    ClarityName::from(CLARITY_NAME_TYPE),
                     Value::UInt(MESSAGE_TYPE_SEND_TO_HUB),
                 ),
                 (
-                    ClarityName::from("destination-chain"),
+                    ClarityName::from(CLARITY_NAME_DESTINATION_CHAIN),
                     Value::string_ascii_from_bytes(destination_chain.to_string().into_bytes())
                         .map_err(|_| ContractError::InvalidMessage)?,
                 ),
                 (
-                    ClarityName::from("payload"),
+                    ClarityName::from(CLARITY_NAME_PAYLOAD),
                     Value::buff_from(inner_payload)?,
                 ),
             ])?;
@@ -101,27 +110,30 @@ fn get_its_interchain_transfer_payload_send_to_hub(
 
     let tuple_data = TupleData::from_data(vec![
         (
-            ClarityName::from("type"),
+            ClarityName::from(CLARITY_NAME_TYPE),
             Value::UInt(MESSAGE_TYPE_INTERCHAIN_TRANSFER),
         ),
         (
-            ClarityName::from("token-id"),
+            ClarityName::from(CLARITY_NAME_TOKEN_ID),
             Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("source-address"),
+            ClarityName::from(CLARITY_NAME_SOURCE_ADDRESS),
             PrincipalData::inner_consensus_deserialize(&mut source_address.clone().as_slice())
                 .map_err(|_| ContractError::InvalidMessage)?
                 .into(),
         ),
         (
-            ClarityName::from("destination-address"),
+            ClarityName::from(CLARITY_NAME_DESTINATION_ADDRESS),
             Value::buff_from(destination_address.to_vec())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
-        (ClarityName::from("amount"), Value::UInt(amount.u128())),
         (
-            ClarityName::from("data"),
+            ClarityName::from(CLARITY_NAME_AMOUNT),
+            Value::UInt(amount.u128()),
+        ),
+        (
+            ClarityName::from(CLARITY_NAME_DATA),
             Value::buff_from(if let Some(data) = data {
                 data.to_vec()
             } else {
@@ -145,26 +157,29 @@ fn get_its_deploy_interchain_token_payload_send_to_hub(
 
     let tuple_data = TupleData::from_data(vec![
         (
-            ClarityName::from("type"),
+            ClarityName::from(CLARITY_NAME_TYPE),
             Value::UInt(MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN),
         ),
         (
-            ClarityName::from("token-id"),
+            ClarityName::from(CLARITY_NAME_TOKEN_ID),
             Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("name"),
+            ClarityName::from(CLARITY_NAME_NAME),
             Value::string_ascii_from_bytes(name.into_bytes())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
         (
-            ClarityName::from("symbol"),
+            ClarityName::from(CLARITY_NAME_SYMBOL),
             Value::string_ascii_from_bytes(symbol.into_bytes())
                 .map_err(|_| ContractError::InvalidMessage)?,
         ),
-        (ClarityName::from("decimals"), Value::UInt(decimals.into())),
         (
-            ClarityName::from("minter"),
+            ClarityName::from(CLARITY_NAME_DECIMALS),
+            Value::UInt(decimals.into()),
+        ),
+        (
+            ClarityName::from(CLARITY_NAME_MINTER),
             Value::buff_from(if let Some(minter) = minter {
                 minter.to_vec()
             } else {
