@@ -54,9 +54,6 @@ pub enum ContractError {
     // exist, use a more descriptive error.
     #[error("storage error")]
     StorageError,
-
-    #[error("payload is invalid")]
-    InvalidPayload,
 }
 
 impl From<ContractError> for StdError {

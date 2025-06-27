@@ -4,7 +4,6 @@ use cosmwasm_std::{HexBinary, Uint128};
 use interchain_token_service as its;
 use interchain_token_service::{HubMessage, Message, TokenId};
 use router_api::ChainNameRaw;
-use sha3::{Digest, Keccak256};
 use stacks_clarity::common::codec::StacksMessageCodec;
 use stacks_clarity::vm::representations::ClarityName;
 use stacks_clarity::vm::types::{TupleData, Value};
@@ -196,14 +195,14 @@ mod tests {
     use stacks_clarity::vm::representations::ClarityName;
     use stacks_clarity::vm::types::{TupleData, Value};
 
-    use crate::contract::its_hub_message_to_clarity_bytes::get_its_payload_and_hash_receive_from_hub;
-    use crate::contract::its_send_to_hub::{
-        MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
+    use crate::contract::its_hub_message_to_clarity_bytes::{
+        its_hub_message_to_clarity_bytes, MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN,
+        MESSAGE_TYPE_INTERCHAIN_TRANSFER,
     };
     use crate::error::ContractError;
 
     #[test]
-    fn test_get_its_payload_hash_send_to_hub_error() {
+    fn test_its_hub_message_to_clarity_bytes_error() {
         let token_id: [u8; 32] = Keccak256::digest(vec![]).into();
 
         let its_hub_message = its::HubMessage::SendToHub {
@@ -217,7 +216,7 @@ mod tests {
             }),
         };
 
-        let res = get_its_payload_and_hash_receive_from_hub(its_hub_message);
+        let res = its_hub_message_to_clarity_bytes(its_hub_message);
 
         assert!(res.is_err());
         assert_eq!(
@@ -227,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_its_payload_hash_interchain_transfer_receive_from_hub() {
+    fn test_its_hub_message_to_clarity_bytes_interchain_transfer() {
         let token_id: [u8; 32] = Keccak256::digest(vec![1, 2, 3]).into();
 
         let its_hub_message = its::HubMessage::ReceiveFromHub {
@@ -241,8 +240,7 @@ mod tests {
             }),
         };
 
-        let (payload, payload_hash) =
-            get_its_payload_and_hash_receive_from_hub(its_hub_message).unwrap();
+        let payload = its_hub_message_to_clarity_bytes(its_hub_message).unwrap();
 
         let tuple_data = TupleData::from_data(vec![
             (
@@ -275,11 +273,10 @@ mod tests {
         let expected_payload = Value::from(tuple_data).serialize_to_vec();
 
         assert_eq!(payload, expected_payload);
-        assert_eq!(payload_hash, Keccak256::digest(expected_payload).as_slice());
     }
 
     #[test]
-    fn test_get_its_payload_hash_deploy_interchain_token_payload_receive_from_hub() {
+    fn test_its_hub_message_to_clarity_bytes_deploy_interchain_token() {
         let token_id: [u8; 32] = Keccak256::digest(vec![]).into();
 
         let its_hub_message = its::HubMessage::ReceiveFromHub {
@@ -323,11 +320,9 @@ mod tests {
         .unwrap();
         let expected_payload = Value::from(tuple_data).serialize_to_vec();
 
-        let (payload, payload_hash) =
-            get_its_payload_and_hash_receive_from_hub(its_hub_message).unwrap();
+        let payload = its_hub_message_to_clarity_bytes(its_hub_message).unwrap();
 
         assert_eq!(payload, expected_payload);
-        assert_eq!(payload_hash, Keccak256::digest(expected_payload).as_slice());
     }
 
     fn from_hex(hex: &str) -> nonempty::HexBinary {

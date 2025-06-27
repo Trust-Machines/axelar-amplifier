@@ -123,6 +123,7 @@ mod test {
     use cosmwasm_std::testing::{
         message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage,
     };
+    use cosmwasm_std::{from_json, Empty, Fraction, OwnedDeps, Uint128, Uint64, WasmQuery};
     use multisig::key::KeyType;
     use multisig::test::common::{build_verifier_set, ecdsa_test_data};
     use router_api::{ChainName, CrossChainId, Message};
@@ -141,7 +142,6 @@ mod test {
     const SERVICE_NAME: &str = "service_name";
     const POLL_BLOCK_EXPIRY: u64 = 100;
     const GOVERNANCE: &str = "governance";
-    const ITS_HUB: &str = "its_hub";
 
     fn source_chain() -> ChainName {
         "source-chain".parse().unwrap()
@@ -356,28 +356,28 @@ mod test {
             },
             TestCase {
                 source_gateway_address:
-                // 63 chars
-                "0x06cdc5221388566e09e1a9be3dcfd4b1bbb4abf98296bb4674401a79373cce5"
-                    .to_string()
-                    .to_lowercase(),
+                    // 63 chars
+                    "0x06cdc5221388566e09e1a9be3dcfd4b1bbb4abf98296bb4674401a79373cce5"
+                        .to_string()
+                        .to_lowercase(),
                 address_format: AddressFormat::Starknet,
                 should_fail: true,
             },
             TestCase {
                 source_gateway_address:
-                // 62 chars
-                "0x6cdc5221388566e09e1a9be3dcfd4b1bbb4abf98296bb4674401a79373cce5"
-                    .to_string()
-                    .to_lowercase(),
+                    // 62 chars
+                    "0x6cdc5221388566e09e1a9be3dcfd4b1bbb4abf98296bb4674401a79373cce5"
+                        .to_string()
+                        .to_lowercase(),
                 address_format: AddressFormat::Starknet,
                 should_fail: true,
             },
             TestCase {
                 source_gateway_address:
-                // 64 chars, but out of prime field range
-                "0xff6cdc5221388566e09e1a9be3dcfd4b1bbb4abf98296bb4674401a79373cce5"
-                    .to_string()
-                    .to_lowercase(),
+                    // 64 chars, but out of prime field range
+                    "0xff6cdc5221388566e09e1a9be3dcfd4b1bbb4abf98296bb4674401a79373cce5"
+                        .to_string()
+                        .to_lowercase(),
                 address_format: AddressFormat::Starknet,
                 should_fail: true,
             },
@@ -1384,7 +1384,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(SENDER), &[]),
+            message_info(&api.addr_make(GOVERNANCE), &[]),
             ExecuteMsg::UpdateVotingThreshold {
                 new_voting_threshold,
             },
@@ -1453,7 +1453,7 @@ mod test {
         execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&api.addr_make(GOVERNANCE), &[]),
+            message_info(&api.addr_make(SENDER), &[]),
             ExecuteMsg::VerifyMessages(messages.clone()),
         )
         .unwrap();
