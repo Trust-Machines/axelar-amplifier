@@ -1,10 +1,11 @@
 use axelar_wasm_std::{FnExt, VerificationStatus};
-use cosmwasm_std::{CosmosMsg, Event, Response, Storage};
+use cosmwasm_std::{CosmosMsg, Event, HexBinary, Response, Storage};
 use error_stack::{Result, ResultExt};
+use gateway_api::msg::MessageWithPayload;
 use itertools::Itertools;
 use router_api::client::Router;
 use router_api::Message;
-use voting_verifier::msg::MessageStatus;
+use voting_verifier::msg::{MessageStatus, MessageWithPayload as VerifierMessageWithPayload};
 
 use crate::contract::Error;
 use crate::events::GatewayEvent;
@@ -17,6 +18,82 @@ pub fn verify_messages(
     apply(verifier, msgs, |msgs_by_status| {
         verify(verifier, msgs_by_status)
     })
+}
+
+pub fn verify_message_with_payload(
+    verifier: &voting_verifier::Client,
+    msgs_with_payload: Vec<MessageWithPayload>,
+) -> Result<Response, Error> {
+    let msgs = check_for_duplicates(
+        msgs_with_payload
+            .iter()
+            .map(|msg_with_payload| msg_with_payload.message.clone())
+            .collect(),
+    )?
+    .then(|msgs| verifier.messages_status(msgs))
+    .change_context(Error::MessageStatus)?;
+
+    let msgs_with_status_and_payload: Result<
+        Vec<(VerificationStatus, (Message, HexBinary))>,
+        Error,
+    > = msgs
+        .into_iter()
+        .zip(msgs_with_payload)
+        .map(|(msg_with_status, msg_with_payload)| {
+            // Sanity check to make sure messages are the same, even though they should be
+            if msg_with_status.message != msg_with_payload.message {
+                return Err(Error::VerifyMessages.into());
+            }
+
+            Ok((
+                msg_with_status.status,
+                (msg_with_status.message, msg_with_payload.payload),
+            ))
+        })
+        .collect();
+
+    let msgs_grouped_by_status: Vec<(VerificationStatus, Vec<(Message, HexBinary)>)> =
+        msgs_with_status_and_payload?
+            .into_iter()
+            .into_group_map()
+            .into_iter()
+            // sort by verification status so the order of messages is deterministic
+            .sorted_by_key(|(status, _)| *status)
+            .collect();
+
+    // Verify messages
+    msgs_grouped_by_status
+        .into_iter()
+        .map(|(status, msgs_with_payload)| {
+            let (msgs, payloads): (Vec<Message>, Vec<HexBinary>) =
+                msgs_with_payload.into_iter().unzip();
+
+            (
+                filter_verifiable_messages(status, &msgs)
+                    .into_iter()
+                    .zip(payloads)
+                    .map(|(message, payload)| VerifierMessageWithPayload { message, payload })
+                    .collect(),
+                into_verify_events(status, msgs.to_vec()),
+            )
+        })
+        .then(flat_unzip)
+        .then(|(verifier_msgs, events)| {
+            (verifier.verify_message_with_payload(verifier_msgs), events)
+        })
+        .then(|(msgs, events)| Response::new().add_messages(msgs).add_events(events))
+        .then(Ok)
+
+    // let message_status = verifier
+    //     .messages_status(vec![message])
+    //     .change_context(Error::MessageStatus)?
+    //     .remove(0);
+    //
+    // let (cosm_message, events) = verify_with_payload(verifier, message_status, message_payload);
+    //
+    // Ok(Response::new()
+    //     .add_messages(cosm_message)
+    //     .add_events(events))
 }
 
 pub fn route_incoming_messages(

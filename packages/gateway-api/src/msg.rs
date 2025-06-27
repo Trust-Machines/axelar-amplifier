@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::HexBinary;
 use msgs_derive::EnsurePermissions;
 use router_api::{CrossChainId, Message};
 
@@ -11,12 +12,23 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
+pub struct MessageWithPayload {
+    pub message: Message,
+    pub payload: HexBinary,
+}
+
+#[cw_serde]
 #[derive(EnsurePermissions)]
 pub enum ExecuteMsg {
     /// Before messages that are unknown to the system can be routed, they need to be verified.
     /// Use this call to trigger verification for any of the given messages that is still unverified.
     #[permission(Any)]
     VerifyMessages(Vec<Message>),
+
+    /// Before messages that are unknown to the system can be routed, they need to be verified.
+    /// Use this call to trigger verification for any of the given messages that is still unverified.
+    #[permission(Any)]
+    VerifyMessageWithPayload(Vec<MessageWithPayload>),
 
     /// Forward the given messages to the next step of the routing layer. If these messages are coming in from an external chain,
     /// they have to be verified first.
