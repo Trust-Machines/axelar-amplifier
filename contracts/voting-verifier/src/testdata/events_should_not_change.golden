@@ -40,18 +40,6 @@
       {
         "key": "address_format",
         "value": "\"eip55\""
-      },
-      {
-        "key": "its_hub_address",
-        "value": "\"its_hub_address\""
-      },
-      {
-        "key": "stacks_abi_transformer",
-        "value": "\"stacks_abi_transformer\""
-      },
-      {
-        "key": "axelar_chain_name",
-        "value": "axelar"
       }
     ],
     "type": "instantiated"

@@ -5,24 +5,21 @@ use axelar_wasm_std::utils::TryMapExt;
 use axelar_wasm_std::voting::{PollId, PollResults, Vote, WeightedPoll};
 use axelar_wasm_std::{nonempty, snapshot, MajorityThreshold, VerificationStatus};
 use cosmwasm_std::{
-    to_json_binary, Deps, DepsMut, Env, Event, HexBinary, MessageInfo, OverflowError,
-    OverflowOperation, Response, Storage, WasmMsg,
+    to_json_binary, Deps, DepsMut, Env, Event, MessageInfo, OverflowError, OverflowOperation,
+    Response, Storage, WasmMsg,
 };
 use error_stack::{report, Report, Result, ResultExt};
 use itertools::Itertools;
 use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, Message};
 use service_registry::WeightedVerifier;
-use sha3::{Digest, Keccak256};
-use stacks_abi_transformer::msg::DecodeResponse;
 
 use crate::contract::query::{message_status, verifier_set_status};
 use crate::error::ContractError;
 use crate::events::{
-    ClarityPayload, PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
+    PollEnded, PollMetadata, PollStarted, QuorumReached, TxEventConfirmation,
     VerifierSetConfirmation, Voted,
 };
-use crate::msg::MessageWithPayload;
 use crate::state::{
     self, poll_messages, poll_verifier_sets, Poll, PollContent, CONFIG, POLLS, POLL_ID, VOTES,
 };
@@ -98,14 +95,6 @@ pub fn verify_messages(
 
     let config = CONFIG.load(deps.storage).expect("failed to load config");
 
-    // Error in case we have messages to ITS Hub
-    if let Some(_) = messages.iter().find(|msg| {
-        msg.destination_chain == config.axelar_chain_name.as_ref()
-            && msg.destination_address.as_str() == config.its_hub_address.as_str()
-    }) {
-        return Err(ContractError::InvalidMessages.into());
-    }
-
     let messages = messages.try_map(|message| {
         validate_source_chain(message, &config.source_chain)
             .and_then(|message| validate_source_address(message, &config.address_format))
@@ -166,121 +155,6 @@ pub fn verify_messages(
             participants,
         },
     }))
-}
-
-pub fn verify_message_with_payload(
-    deps: DepsMut,
-    env: Env,
-    messages_with_payloads: Vec<MessageWithPayload>,
-) -> Result<Response, ContractError> {
-    if messages_with_payloads.is_empty() {
-        return Err(report!(ContractError::EmptyMessages));
-    }
-
-    let config = CONFIG.load(deps.storage).expect("failed to load config");
-
-    let messages = messages_with_payloads.try_map(|message_with_payload| {
-        // Message needs to be to ITS Hub
-        if message_with_payload.message.destination_chain.as_ref()
-            != config.axelar_chain_name.as_ref()
-            || message_with_payload.message.destination_address.as_str()
-                != config.its_hub_address.as_str()
-        {
-            return Err(ContractError::InvalidMessage(message_with_payload).into());
-        }
-
-        // Payload needs to be correct, corresponding to the payload hash
-        if message_with_payload.message.payload_hash.as_slice()
-            != Keccak256::digest(&message_with_payload.payload).as_slice()
-        {
-            return Err(ContractError::InvalidPayload.into());
-        }
-
-        validate_source_chain(message_with_payload.message, &config.source_chain)
-            .and_then(|message| validate_source_address(message, &config.address_format))
-            .and_then(|message| {
-                message_status(deps.as_ref(), &message, env.block.height)
-                    .map(|status| (status, message, message_with_payload.payload))
-            })
-    })?;
-
-    let msgs_to_verify_with_payloads: Vec<(Message, HexBinary)> = messages
-        .into_iter()
-        .filter_map(|(status, message, payload)| match status {
-            VerificationStatus::NotFoundOnSourceChain
-            | VerificationStatus::FailedToVerify
-            | VerificationStatus::Unknown => Some((message, payload)),
-            VerificationStatus::InProgress
-            | VerificationStatus::SucceededOnSourceChain
-            | VerificationStatus::FailedOnSourceChain => None,
-        })
-        .collect();
-
-    if msgs_to_verify_with_payloads.is_empty() {
-        return Ok(Response::new());
-    }
-
-    // let message = msg_to_verify.unwrap();
-
-    let snapshot = take_snapshot(deps.as_ref(), &config.source_chain)?;
-    let participants = snapshot.participants();
-    let expires_at = calculate_expiration(env.block.height, config.block_expiry.into())?;
-
-    let id = create_messages_poll(deps.storage, expires_at, snapshot, 1)?;
-
-    for (idx, (message, _)) in msgs_to_verify_with_payloads.iter().enumerate() {
-        poll_messages()
-            .save(
-                deps.storage,
-                &message.hash(),
-                &state::PollContent::<Message>::new(message.clone(), id, idx),
-            )
-            .change_context(ContractError::StorageError)?;
-    }
-
-    let stacks_abi_transformer: stacks_abi_transformer::Client =
-        client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
-
-    let mapped_messages: Result<Vec<(TxEventConfirmation, ClarityPayload)>, ContractError> =
-        msgs_to_verify_with_payloads
-            .into_iter()
-            .map(|(mut msg, payload)| {
-                let DecodeResponse {
-                    clarity_payload,
-                    payload_hash,
-                } = stacks_abi_transformer
-                    .decode_send_to_hub(payload)
-                    .change_context(ContractError::InvalidPayload)?;
-
-                // payload_hash needs to be changed only for event to Ampd, because Gateway RouteMessages will still be called with old payload_hash
-                msg.payload_hash = payload_hash;
-
-                Ok((
-                    TxEventConfirmation::try_from((msg, &config.msg_id_format))
-                        .map_err(|err| report!(err))?,
-                    ClarityPayload {
-                        clarity_payload,
-                        payload_hash,
-                    },
-                ))
-            })
-            .collect();
-
-    let (messages, clarity_payloads) = mapped_messages?.into_iter().unzip();
-
-    Ok(Response::new()
-        .add_event(PollStarted::Messages {
-            messages,
-            metadata: PollMetadata {
-                poll_id: id,
-                source_chain: config.source_chain,
-                source_gateway_address: config.source_gateway_address,
-                confirmation_height: config.confirmation_height,
-                expires_at,
-                participants,
-            },
-        })
-        .add_event(PollStarted::ItsHubClarityPayload { clarity_payloads }))
 }
 
 fn poll_results(poll: &Poll) -> PollResults {

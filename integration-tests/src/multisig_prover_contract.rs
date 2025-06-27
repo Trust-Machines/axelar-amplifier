@@ -52,13 +52,6 @@ impl MultisigProverContract {
                     encoder: Encoder::Abi,
                     key_type: KeyType::Ecdsa,
                     domain_separator: [0; 32],
-                    its_hub_address:
-                        "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
-                            .to_string(),
-                    stacks_abi_transformer:
-                        "axelar10jzzmv5m7da7dn2xsfac0yqe7zamy34uedx3e28laq0p6f3f8dzqp649fp"
-                            .to_string(),
-                    axelar_chain_name: "axelar".to_string(),
                 },
                 &[],
                 "multisig_prover",

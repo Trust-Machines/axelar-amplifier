@@ -138,8 +138,7 @@ mod tests {
     use crate::test::test_data::{self, TestOperator};
     use crate::test::test_utils::{
         mock_querier_handler, ADMIN, COORDINATOR_ADDRESS, GATEWAY_ADDRESS, GOVERNANCE,
-        ITS_HUB_ADDRESS, MULTISIG_ADDRESS, SERVICE_NAME, SERVICE_REGISTRY_ADDRESS,
-        STACKS_ABI_TRANSFORMER, VOTING_VERIFIER_ADDRESS,
+        MULTISIG_ADDRESS, SERVICE_NAME, SERVICE_REGISTRY_ADDRESS, VOTING_VERIFIER_ADDRESS,
     };
 
     const RELAYER: &str = "relayer";
@@ -659,11 +658,10 @@ mod tests {
 
     #[test]
     fn test_construct_proof() {
-        let mut deps = setup_test_case(1);
+        let mut deps = setup_test_case();
         execute_update_verifier_set(deps.as_mut()).unwrap();
 
         execute_construct_proof(deps.as_mut(), None).unwrap();
-
         let res = reply_construct_proof(deps.as_mut()).unwrap();
 
         let event = res

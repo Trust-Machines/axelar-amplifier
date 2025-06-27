@@ -9,10 +9,10 @@ use stacks_clarity::common::codec::StacksMessageCodec;
 use stacks_clarity::vm::representations::ClarityName;
 use stacks_clarity::vm::types::{TupleData, Value};
 
-use crate::contract::its_send_to_hub::{
-    MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
-};
 use crate::error::ContractError;
+
+const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
+const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
 
 pub const CLARITY_NAME_TYPE: &str = "type";
 const CLARITY_NAME_SOURCE_CHAIN: &str = "source-chain";
@@ -26,9 +26,9 @@ pub const CLARITY_NAME_SYMBOL: &str = "symbol";
 pub const CLARITY_NAME_DECIMALS: &str = "decimals";
 const CLARITY_NAME_MINTER_BYTES: &str = "minter-bytes";
 
-pub fn get_its_payload_and_hash_receive_from_hub(
+pub fn its_hub_message_to_clarity_bytes(
     its_hub_message: HubMessage,
-) -> Result<(Vec<u8>, [u8; 32]), ContractError> {
+) -> Result<Vec<u8>, ContractError> {
     let payload = match its_hub_message {
         HubMessage::SendToHub { .. } => Err(ContractError::InvalidPayload),
         HubMessage::ReceiveFromHub {
@@ -68,9 +68,7 @@ pub fn get_its_payload_and_hash_receive_from_hub(
         HubMessage::RegisterTokenMetadata(_) => Err(ContractError::InvalidPayload),
     }?;
 
-    let payload_hash: [u8; 32] = Keccak256::digest(payload.as_slice()).into();
-
-    Ok((payload, payload_hash))
+    Ok(payload)
 }
 
 fn get_its_interchain_transfer_payload_receive_from_hub(
@@ -198,7 +196,7 @@ mod tests {
     use stacks_clarity::vm::representations::ClarityName;
     use stacks_clarity::vm::types::{TupleData, Value};
 
-    use crate::contract::its_receive_from_hub::get_its_payload_and_hash_receive_from_hub;
+    use crate::contract::its_hub_message_to_clarity_bytes::get_its_payload_and_hash_receive_from_hub;
     use crate::contract::its_send_to_hub::{
         MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
     };

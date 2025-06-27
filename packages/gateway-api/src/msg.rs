@@ -1,5 +1,4 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::HexBinary;
 use msgs_derive::EnsurePermissions;
 use router_api::{CrossChainId, Message};
 
@@ -9,12 +8,6 @@ pub struct InstantiateMsg {
     pub verifier_address: String,
     /// Address of the router contract on axelar.
     pub router_address: String,
-}
-
-#[cw_serde]
-pub struct MessageWithPayload {
-    pub message: Message,
-    pub payload: HexBinary,
 }
 
 #[cw_serde]

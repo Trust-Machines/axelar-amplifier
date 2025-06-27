@@ -6,7 +6,7 @@ use error_stack::ResultExt;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
 
-use crate::msg::{ExecuteMsg, MessageStatus, MessageWithPayload, PollResponse, QueryMsg};
+use crate::msg::{ExecuteMsg, MessageStatus, PollResponse, QueryMsg};
 
 type Result<T> = error_stack::Result<T, Error>;
 
@@ -48,16 +48,6 @@ impl Client<'_> {
         messages
             .to_none_if_empty()
             .map(|messages| self.client.execute(&ExecuteMsg::VerifyMessages(messages)))
-    }
-
-    pub fn verify_message_with_payload(
-        &self,
-        messages: Vec<MessageWithPayload>,
-    ) -> Option<CosmosMsg> {
-        messages.to_none_if_empty().map(|messages| {
-            self.client
-                .execute(&ExecuteMsg::VerifyMessagesWithPayload(messages))
-        })
     }
 
     pub fn vote(&self, poll_id: PollId, votes: Vec<Vote>) -> CosmosMsg {
@@ -337,13 +327,6 @@ mod test {
             rewards_address: api.addr_make("rewards").to_string().try_into().unwrap(),
             msg_id_format: axelar_wasm_std::msg_id::MessageIdFormat::HexTxHashAndEventIndex,
             address_format: axelar_wasm_std::address::AddressFormat::Eip55,
-            its_hub_address: api.addr_make("its_hub").to_string().try_into().unwrap(),
-            stacks_abi_transformer: api
-                .addr_make("stacks_abi_transformer")
-                .to_string()
-                .try_into()
-                .unwrap(),
-            axelar_chain_name: "axelar".parse().unwrap(),
         };
 
         instantiate(deps, env, info.clone(), msg.clone()).unwrap();

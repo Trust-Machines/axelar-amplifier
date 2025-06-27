@@ -6,7 +6,7 @@ use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Resp
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
-mod its_receive_from_hub;
+mod its_hub_message_to_clarity_bytes;
 mod its_send_to_hub;
 mod migrations;
 mod query;
@@ -46,15 +46,10 @@ pub fn query(
     msg: QueryMsg,
 ) -> Result<Binary, axelar_wasm_std::error::ContractError> {
     match msg {
-        // TODO: Remove these other message types
-        QueryMsg::DecodeReceiveFromHub { abi_payload } => {
-            to_json_binary(&query::decode_receive_from_hub(abi_payload)?)
-        }
-        QueryMsg::DecodeSendToHub { abi_payload } => {
-            to_json_binary(&query::decode_send_to_hub(abi_payload)?)
-        }
         QueryMsg::FromBytes { payload } => {
-            to_json_binary(&query::clarity_bytes_to_hub_message(payload)?)
+            unimplemented!()
+            // TODO: Test this
+            // to_json_binary(&query::clarity_bytes_to_hub_message(payload)?)
         }
         QueryMsg::ToBytes { message } => {
             to_json_binary(&query::hub_message_to_clarity_bytes(message)?)

@@ -1,11 +1,10 @@
 use axelar_wasm_std::{FnExt, VerificationStatus};
-use cosmwasm_std::{CosmosMsg, Event, HexBinary, Response, Storage};
+use cosmwasm_std::{CosmosMsg, Event, Response, Storage};
 use error_stack::{Result, ResultExt};
-use gateway_api::msg::MessageWithPayload;
 use itertools::Itertools;
 use router_api::client::Router;
 use router_api::Message;
-use voting_verifier::msg::{MessageStatus, MessageWithPayload as VerifierMessageWithPayload};
+use voting_verifier::msg::MessageStatus;
 
 use crate::contract::Error;
 use crate::events::GatewayEvent;

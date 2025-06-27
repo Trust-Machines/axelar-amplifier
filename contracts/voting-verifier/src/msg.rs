@@ -1,19 +1,12 @@
 use axelar_wasm_std::voting::{PollId, PollStatus, Vote, WeightedPoll};
 use axelar_wasm_std::{nonempty, MajorityThreshold, VerificationStatus};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::HexBinary;
 use msgs_derive::EnsurePermissions;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message;
 pub use voting_verifier_api::msg::InstantiateMsg;
 
 pub use crate::contract::MigrateMsg;
-
-#[cw_serde]
-pub struct MessageWithPayload {
-    pub message: Message,
-    pub payload: HexBinary,
-}
 
 #[cw_serde]
 #[derive(EnsurePermissions)]
@@ -29,11 +22,8 @@ pub enum ExecuteMsg {
 
     // returns a vector of true/false values, indicating current verification status for each message
     // starts a poll for any not yet verified messages
-    #[permission(Governance)]
-    VerifyMessages(Vec<Message>),
-
     #[permission(Any)]
-    VerifyMessagesWithPayload(Vec<MessageWithPayload>),
+    VerifyMessages(Vec<Message>),
 
     // Starts a poll to confirm a verifier set update on the external gateway
     #[permission(Any)]

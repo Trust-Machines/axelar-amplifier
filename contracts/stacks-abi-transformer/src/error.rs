@@ -7,9 +7,6 @@ pub enum ContractError {
     #[error("payload is invalid")]
     InvalidPayload,
 
-    #[error("messages are invalid")]
-    InvalidMessages,
-
     #[error("message is invalid")]
     InvalidMessage,
 
