@@ -325,7 +325,7 @@ mod tests {
         .try_into()
         .unwrap();
         let service_name = "service_name";
-        for encoding in [Encoder::Abi, Encoder::Bcs] {
+        for encoding in [Encoder::Abi, Encoder::Bcs, Encoder::Stacks] {
             let mut deps = mock_dependencies();
             let info = message_info(&instantiator, &[]);
             let env = mock_env();
