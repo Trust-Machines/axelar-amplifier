@@ -71,7 +71,7 @@ pub fn execute(
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
     match msg.ensure_permissions(deps.storage, &info.sender)? {
         ExecuteMsg::VerifyMessages(messages) => Ok(execute::verify_messages(deps, env, messages)?),
-        ExecuteMsg::VerifyMessageWithPayload(messages) => {
+        ExecuteMsg::VerifyMessagesWithPayload(messages) => {
             Ok(execute::verify_message_with_payload(deps, env, messages)?)
         }
         ExecuteMsg::Vote { poll_id, votes } => Ok(execute::vote(deps, env, info, poll_id, votes)?),
@@ -541,7 +541,7 @@ mod test {
         let verifiers = verifiers(2);
         let mut deps = setup(verifiers.clone(), &msg_id_format);
 
-        let msg = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: Message {
                 cc_id: CrossChainId::new(source_chain(), message_id("id", 1, &msg_id_format))
                     .unwrap(),
@@ -604,7 +604,7 @@ mod test {
                 .try_into()
                 .unwrap();
 
-        let msg = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: messages.remove(0),
             payload: HexBinary::from_hex("00").unwrap(),
         }]);
@@ -680,7 +680,7 @@ mod test {
 
         let message = messages.remove(0);
 
-        let msg = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: message.clone(),
             payload: HexBinary::from_hex("00").unwrap(),
         }]);
@@ -733,7 +733,7 @@ mod test {
 
         let message = messages.remove(0);
 
-        let msg = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: message.clone(),
             payload: HexBinary::from_hex("00").unwrap(),
         }]);
@@ -820,7 +820,7 @@ mod test {
             deps.as_mut(),
             mock_env(),
             mock_info(SENDER, &[]),
-            ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+            ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
                 message: message.clone(),
                 payload: payload.clone(),
             }]),
@@ -839,7 +839,7 @@ mod test {
             deps.as_mut(),
             mock_env(),
             mock_info(SENDER, &[]),
-            ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+            ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
                 message: message.clone(),
                 payload: payload.clone(),
             }]),
@@ -871,13 +871,14 @@ mod test {
 
         let message = messages.remove(0);
 
-        let msg = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let message_with_payload = MessageWithPayload {
             message: message.clone(),
             payload: HexBinary::from_hex("00").unwrap(),
-        }]);
+        };
+        let msg = ExecuteMsg::VerifyMessagesWithPayload(vec![message_with_payload.clone()]);
 
         let err = execute(deps.as_mut(), mock_env(), mock_info(SENDER, &[]), msg).unwrap_err();
-        assert_contract_err_strings_equal(err, ContractError::InvalidMessage);
+        assert_contract_err_strings_equal(err, ContractError::InvalidMessage(message_with_payload));
     }
 
     #[test]
@@ -898,7 +899,7 @@ mod test {
 
         let message = messages.remove(0);
 
-        let msg = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: message.clone(),
             payload: HexBinary::from_hex("AA").unwrap(),
         }]);
@@ -987,7 +988,7 @@ mod test {
         let (message, payload) =
             get_stacks_message_with_payload(deps.api.addr_make(ITS_HUB).as_str().parse().unwrap());
 
-        let msg = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: message.clone(),
             payload: payload.clone(),
         }]);
@@ -1189,7 +1190,7 @@ mod test {
 
         // 1. First verification
 
-        let msg_verify = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg_verify = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: message.clone(),
             payload: payload.clone(),
         }]);
@@ -1386,7 +1387,7 @@ mod test {
             deps.as_mut(),
             mock_env(),
             mock_info(SENDER, &[]),
-            ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+            ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
                 message: message.clone(),
                 payload: payload.clone(),
             }]),
@@ -2123,7 +2124,7 @@ mod test {
 
         // 1. First verification
 
-        let msg_verify = ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+        let msg_verify = ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
             message: message.clone(),
             payload: HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000b60524f7374deae5624711575011ae6fdfbbf4073fec106f4ebe773da9c6104800000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000b71b0000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000016051ac4a739e6e70be056920e5195e7ed579182c862aa000000000000000000000000000000000000000000000000000000000000000000000000000000000014ab905ea4dc0b571c127e8b38f00cecd97f0855590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap(),
         }]);
@@ -2276,7 +2277,7 @@ mod test {
             deps.as_mut(),
             mock_env(),
             mock_info(SENDER, &[]),
-            ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+            ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
                 message: message.clone(),
                 payload: HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000b60524f7374deae5624711575011ae6fdfbbf4073fec106f4ebe773da9c6104800000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000b71b0000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000016051ac4a739e6e70be056920e5195e7ed579182c862aa000000000000000000000000000000000000000000000000000000000000000000000000000000000014ab905ea4dc0b571c127e8b38f00cecd97f0855590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap(),
             }]),
@@ -2349,7 +2350,7 @@ mod test {
             deps.as_mut(),
             mock_env(),
             mock_info(SENDER, &[]),
-            ExecuteMsg::VerifyMessageWithPayload(vec![MessageWithPayload {
+            ExecuteMsg::VerifyMessagesWithPayload(vec![MessageWithPayload {
                 message: message_1.clone(),
                 payload: HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000e6176616c616e6368652d66756a6900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000b60524f7374deae5624711575011ae6fdfbbf4073fec106f4ebe773da9c6104800000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000b71b0000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000016051ac4a739e6e70be056920e5195e7ed579182c862aa000000000000000000000000000000000000000000000000000000000000000000000000000000000014ab905ea4dc0b571c127e8b38f00cecd97f0855590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap(),
             }, MessageWithPayload {

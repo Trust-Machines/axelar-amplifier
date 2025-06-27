@@ -55,9 +55,8 @@ pub fn construct_proof_with_payload(
     let stacks_abi_transformer: stacks_abi_transformer::Client =
         client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
 
-    let mut clarity_payloads = Vec::new();
     // Change message payload_hash if needed
-    let payload_messages: Result<Vec<Message>, ContractError> = messages
+    let mapped_messages: Result<Vec<(Message, ClarityPayload)>, ContractError> = messages
         .into_iter()
         .zip(message_ids_with_payloads)
         .map(|(mut message, msg_id_with_payload)| {
@@ -77,16 +76,19 @@ pub fn construct_proof_with_payload(
 
             message.payload_hash = payload_hash;
 
-            clarity_payloads.push(ClarityPayload {
-                clarity_payload,
-                payload_hash,
-            });
-
-            Ok(message)
+            Ok((
+                message,
+                ClarityPayload {
+                    clarity_payload,
+                    payload_hash,
+                },
+            ))
         })
         .collect();
 
-    let payload = Payload::Messages(payload_messages?);
+    let (payload_messages, clarity_payloads) = mapped_messages?.into_iter().unzip();
+
+    let payload = Payload::Messages(payload_messages);
     let payload_id = payload.id();
 
     match PAYLOAD
