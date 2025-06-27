@@ -8,7 +8,7 @@ use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
-pub mod execute;
+mod execute;
 mod migrations;
 mod query;
 mod reply;
@@ -48,12 +48,6 @@ pub fn instantiate(
         encoder: msg.encoder,
         key_type: msg.key_type,
         domain_separator: msg.domain_separator,
-        its_hub_address: address::validate_cosmwasm_address(deps.api, &msg.its_hub_address)?,
-        stacks_abi_transformer: address::validate_cosmwasm_address(
-            deps.api,
-            &msg.stacks_abi_transformer,
-        )?,
-        axelar_chain_name: msg.axelar_chain_name.parse()?,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -77,10 +71,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, axelar_wasm_std::error::ContractError> {
     match msg.ensure_permissions(deps.storage, &info.sender)? {
-        ExecuteMsg::ConstructProof(_) => unimplemented!(),
-        ExecuteMsg::ConstructProofWithPayload(messages) => {
-            Ok(execute::construct_proof_with_payload(deps, messages)?)
-        }
+        ExecuteMsg::ConstructProof(message_ids) => Ok(execute::construct_proof(deps, message_ids)?),
         ExecuteMsg::UpdateVerifierSet {} => Ok(execute::update_verifier_set(deps, env)?),
         ExecuteMsg::ConfirmVerifierSet {} => Ok(execute::confirm_verifier_set(deps, info.sender)?),
         ExecuteMsg::UpdateSigningThreshold {
@@ -127,7 +118,6 @@ pub fn query(
 
 #[cfg(test)]
 mod tests {
-    use axelar_wasm_std::nonempty::HexBinary;
     use axelar_wasm_std::permission_control::Permission;
     use axelar_wasm_std::{permission_control, MajorityThreshold, Threshold, VerificationStatus};
     use cosmwasm_std::testing::{
@@ -144,12 +134,12 @@ mod tests {
 
     use super::*;
     use crate::contract::execute::should_update_verifier_set;
-    use crate::msg::{MessageIdWithPayload, ProofResponse, ProofStatus, VerifierSetResponse};
+    use crate::msg::{ProofResponse, ProofStatus, VerifierSetResponse};
     use crate::test::test_data::{self, TestOperator};
     use crate::test::test_utils::{
-        mock_querier_handler, mock_querier_handler_its_hub, ADMIN, COORDINATOR_ADDRESS,
-        GATEWAY_ADDRESS, GOVERNANCE, ITS_HUB_ADDRESS, MULTISIG_ADDRESS, SERVICE_NAME,
-        SERVICE_REGISTRY_ADDRESS, STACKS_ABI_TRANSFORMER, VOTING_VERIFIER_ADDRESS,
+        mock_querier_handler, ADMIN, COORDINATOR_ADDRESS, GATEWAY_ADDRESS, GOVERNANCE,
+        ITS_HUB_ADDRESS, MULTISIG_ADDRESS, SERVICE_NAME, SERVICE_REGISTRY_ADDRESS,
+        STACKS_ABI_TRANSFORMER, VOTING_VERIFIER_ADDRESS,
     };
 
     const RELAYER: &str = "relayer";
@@ -183,54 +173,6 @@ mod tests {
                 encoder: Encoder::Abi,
                 key_type: multisig::key::KeyType::Ecdsa,
                 domain_separator: [0; 32],
-                its_hub_address: api.addr_make(ITS_HUB_ADDRESS).to_string(),
-                stacks_abi_transformer: api.addr_make(STACKS_ABI_TRANSFORMER).to_string(),
-                axelar_chain_name: "axelar".to_string(),
-            },
-        )
-        .unwrap();
-
-        deps
-    }
-
-    pub fn setup_test_case_its_hub(
-        nb_messages: usize,
-    ) -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
-        let mut deps = mock_dependencies();
-        let api = deps.api;
-
-        let its_hub_address = api.addr_make(ITS_HUB_ADDRESS).to_string();
-        let stacks_abi_transformer = api.addr_make(STACKS_ABI_TRANSFORMER).to_string();
-
-        deps.querier.update_wasm(mock_querier_handler_its_hub(
-            test_data::operators(),
-            VerificationStatus::SucceededOnSourceChain,
-            its_hub_address.clone(),
-            nb_messages,
-        ));
-
-        instantiate(
-            deps.as_mut(),
-            mock_env(),
-            message_info(&api.addr_make(ADMIN), &[]),
-            InstantiateMsg {
-                admin_address: api.addr_make(ADMIN).to_string(),
-                governance_address: api.addr_make(GOVERNANCE).to_string(),
-                gateway_address: api.addr_make(GATEWAY_ADDRESS).to_string(),
-                multisig_address: api.addr_make(MULTISIG_ADDRESS).to_string(),
-                coordinator_address: api.addr_make(COORDINATOR_ADDRESS).to_string(),
-                service_registry_address: api.addr_make(SERVICE_REGISTRY_ADDRESS).to_string(),
-                voting_verifier_address: api.addr_make(VOTING_VERIFIER_ADDRESS).to_string(),
-                signing_threshold: test_data::threshold(),
-                service_name: SERVICE_NAME.to_string(),
-                chain_name: "ganache-0".to_string(),
-                verifier_set_diff_threshold: 0,
-                encoder: Encoder::Abi,
-                key_type: multisig::key::KeyType::Ecdsa,
-                domain_separator: [0; 32],
-                its_hub_address,
-                stacks_abi_transformer,
-                axelar_chain_name: "axelar".to_string(),
             },
         )
         .unwrap();
@@ -278,19 +220,22 @@ mod tests {
         execute(deps, mock_env(), message_info(&sender, &[]), msg)
     }
 
-    fn execute_construct_proof_with_payload(
+    fn execute_construct_proof(
         deps: DepsMut,
-        message_id: CrossChainId,
-        payload: HexBinary,
+        message_ids: Option<Vec<CrossChainId>>,
     ) -> Result<Response, axelar_wasm_std::error::ContractError> {
-        let msg = ExecuteMsg::ConstructProofWithPayload(vec![MessageIdWithPayload {
-            message_id,
-            payload: payload.into(),
-        }]);
+        let message_ids = message_ids.unwrap_or_else(|| {
+            test_data::messages()
+                .into_iter()
+                .map(|msg| msg.cc_id)
+                .collect::<Vec<CrossChainId>>()
+        });
+
+        let msg = ExecuteMsg::ConstructProof(message_ids);
         execute(
             deps,
             mock_env(),
-            message_info(&Addr::unchecked(RELAYER), &[]),
+            message_info(&MockApi::default().addr_make(RELAYER), &[]),
             msg,
         )
     }
@@ -373,8 +318,6 @@ mod tests {
         let coordinator_address = api.addr_make("coordinator_address");
         let service_registry_address = api.addr_make("service_registry_address");
         let voting_verifier_address = api.addr_make("voting_verifier");
-        let its_hub_address = api.addr_make("its_hub");
-        let stacks_abi_transformer = api.addr_make("stacks_abi_transformer");
         let signing_threshold = Threshold::try_from((
             test_data::threshold().numerator(),
             test_data::threshold().denominator(),
@@ -403,9 +346,6 @@ mod tests {
                 encoder: encoding,
                 key_type: multisig::key::KeyType::Ecdsa,
                 domain_separator: [0; 32],
-                its_hub_address: its_hub_address.to_string(),
-                stacks_abi_transformer: stacks_abi_transformer.to_string(),
-                axelar_chain_name: "axelar".to_string(),
             };
 
             let res = instantiate(deps.as_mut(), env, info, msg);
@@ -718,53 +658,12 @@ mod tests {
     }
 
     #[test]
-    fn test_query_proof_with_payload() {
-        let mut deps = setup_test_case_its_hub(1);
-        execute_update_verifier_set(deps.as_mut()).unwrap();
-        let payload =
-            HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();
-        execute_construct_proof_with_payload(
-            deps.as_mut(),
-            CrossChainId::new(
-                "axelar",
-                "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
-            )
-            .unwrap(),
-            payload.clone(),
-        )
-        .unwrap();
-        reply_construct_proof(deps.as_mut()).unwrap(); // simulate reply from multisig
-
-        let res = query_proof(deps.as_ref(), None).unwrap();
-
-        assert_eq!(res.multisig_session_id, MULTISIG_SESSION_ID);
-        assert_eq!(res.message_ids.len(), 1);
-        match res.status {
-            ProofStatus::Completed { execute_data } => {
-                assert_eq!(execute_data, cosmwasm_std::HexBinary::from_hex("64f1d85a000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002600000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000160000000000000000000000000a4f10f76b86e01b98daf66a3d02a65e14adb0767ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e00000000000000000000000000000000000000000000000000000000000000066178656c6172000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000443078666638323263383838303738353966663232366235386532346632343937346137306630346239343432353031616533386664363635623363363866333833342d30000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043636f736d7761736d316434786e667578357276386e36666664777a66677270346338346e366d386b64763373796570796c63753733786c663939717773776a6b726a7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000050000000000000000000000004ef5c8d81b6417fa80c320b5fc1d3900506dff5400000000000000000000000000000000000000000000000000000000000000010000000000000000000000006c51eec96bf0a8ec799cdd0bbcb4512f8334afe800000000000000000000000000000000000000000000000000000000000000010000000000000000000000007aeb4eebf1e8dcde3016d4e1dca52b4538cf7aaf0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000c5b95c99d883c3204cfc2e73669ce3aa7437f4a60000000000000000000000000000000000000000000000000000000000000001000000000000000000000000ffffde829096dfe8b833997e939865ff57422ea900000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000004172b242d7247fc31d14ce82b32f3ea911808f6f600f362150f9904c974315942927c25f9388cecdbbb0b3723164eea92206775870cd28e1ffd8f1cb9655fb3c4a1b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004186909155a6ba27f173edf15d283da6a0019fb6afe6b223ca68530464813f468f356e70788faf6d1d9ff7bfcfd9021b560d72408bef4c86c66e3a94b9dee0a34a1b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000419b2d986652fdebe67554f1b33ae6161b205ea84e0dacb07ffde0889791bcab2e5be3b8229eae01f2c22805c87f15cb7f9642e9cba951489edcac5d12ace399391b00000000000000000000000000000000000000000000000000000000000000").unwrap());
-            }
-            _ => panic!("Expected proof status to be completed"), // multisig mock will always return completed multisig
-        }
-    }
-
-    #[test]
-    fn test_construct_proof_with_payload() {
-        let mut deps = setup_test_case_its_hub(1);
+    fn test_construct_proof() {
+        let mut deps = setup_test_case(1);
         execute_update_verifier_set(deps.as_mut()).unwrap();
 
-        // Interchain transfer payload
-        let payload =
-            HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();
-        execute_construct_proof_with_payload(
-            deps.as_mut(),
-            CrossChainId::new(
-                "axelar",
-                "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
-            )
-            .unwrap(),
-            payload.clone(),
-        )
-        .unwrap();
+        execute_construct_proof(deps.as_mut(), None).unwrap();
+
         let res = reply_construct_proof(deps.as_mut()).unwrap();
 
         let event = res
@@ -775,16 +674,7 @@ mod tests {
         assert!(event.is_some());
 
         // test case where there is an existing payload
-        execute_construct_proof_with_payload(
-            deps.as_mut(),
-            CrossChainId::new(
-                "axelar",
-                "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
-            )
-            .unwrap(),
-            payload,
-        )
-        .unwrap();
+        execute_construct_proof(deps.as_mut(), None).unwrap();
         let res = reply_construct_proof(deps.as_mut()).unwrap(); // simulate reply from multisig
         let event = res
             .events
@@ -795,114 +685,28 @@ mod tests {
     }
 
     #[test]
-    fn test_construct_proof_with_payload_multiple() {
-        let mut deps = setup_test_case_its_hub(2);
-        execute_update_verifier_set(deps.as_mut()).unwrap();
-
-        // Interchain transfer payload
-        let payload =
-            HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();
-
-        let msg = ExecuteMsg::ConstructProofWithPayload(vec![
-            MessageIdWithPayload {
-                message_id: CrossChainId::new(
-                    "axelar",
-                    "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
-                )
-                .unwrap(),
-                payload: payload.clone().into(),
-            },
-            MessageIdWithPayload {
-                message_id: CrossChainId::new(
-                    "axelar",
-                    "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-1", // other message id
-                )
-                .unwrap(),
-                payload: payload.clone().into(),
-            },
-        ]);
-        execute(
-            deps.as_mut(),
-            mock_env(),
-            message_info(&Addr::unchecked(RELAYER), &[]),
-            msg,
-        )
-        .unwrap();
-        let res = reply_construct_proof(deps.as_mut()).unwrap();
-
-        let event = res
-            .events
-            .iter()
-            .find(|event| event.ty == "proof_under_construction");
-
-        assert!(event.is_some());
-    }
-
-    #[test]
-    fn test_construct_proof_with_payload_non_its_hub_messages_should_fail() {
+    fn test_query_proof() {
         let mut deps = setup_test_case();
         execute_update_verifier_set(deps.as_mut()).unwrap();
+        execute_construct_proof(deps.as_mut(), None).unwrap();
+        reply_construct_proof(deps.as_mut()).unwrap(); // simulate reply from multisig
 
-        let payload =
-            HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("00").unwrap()).unwrap();
+        let res = query_proof(deps.as_ref(), None).unwrap();
 
-        let res = execute_construct_proof_with_payload(
-            deps.as_mut(),
-            CrossChainId::new(
-                "ganache-1",
-                "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
-            )
-            .unwrap(),
-            payload,
-        );
-
-        assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            axelar_wasm_std::error::ContractError::from(ContractError::InvalidMessage).to_string()
-        );
+        assert_eq!(res.multisig_session_id, MULTISIG_SESSION_ID);
+        assert_eq!(res.message_ids.len(), 1);
+        match res.status {
+            ProofStatus::Completed { execute_data } => {
+                assert_eq!(execute_data, test_data::approve_messages_calldata());
+            }
+            _ => panic!("Expected proof status to be completed"), // multisig mock will always return completed multisig
+        }
     }
 
     #[test]
-    fn test_construct_proof_with_payload_wrong_payload() {
-        let mut deps = setup_test_case_its_hub(1);
-        execute_update_verifier_set(deps.as_mut()).unwrap();
-
-        let payload =
-            HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("00").unwrap()).unwrap();
-
-        let res = execute_construct_proof_with_payload(
-            deps.as_mut(),
-            CrossChainId::new(
-                "axelar",
-                "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
-            )
-            .unwrap(),
-            payload,
-        );
-
-        assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            axelar_wasm_std::error::ContractError::from(ContractError::InvalidPayload).to_string()
-        );
-    }
-
-    #[test]
-    fn test_construct_proof_with_payload_no_verifier_set() {
-        let mut deps = setup_test_case_its_hub(1);
-
-        let payload =
-            HexBinary::try_from(cosmwasm_std::HexBinary::from_hex("0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000a6d756c7469766572737800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000002c2a94e0c1200b3432349f28ac617a7c9242bbc9d2c9cb46d7fe9ac55510471000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000dbd2fc137a300000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000002077588c18055a483754b68c2378d5e7a6fa4e1d4e0302dadf5db12e7a50a1b5bf0000000000000000000000000000000000000000000000000000000000000014f12372616f9c986355414ba06b3ca954c0a7b0dc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()).unwrap();
-        let res = execute_construct_proof_with_payload(
-            deps.as_mut(),
-            CrossChainId::new(
-                "axelar",
-                "0xff822c88807859ff226b58e24f24974a70f04b9442501ae38fd665b3c68f3834-0",
-            )
-            .unwrap(),
-            payload,
-        );
+    fn test_construct_proof_no_verifier_set() {
+        let mut deps = setup_test_case();
+        let res = execute_construct_proof(deps.as_mut(), None);
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),

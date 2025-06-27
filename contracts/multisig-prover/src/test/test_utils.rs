@@ -1,12 +1,11 @@
 use axelar_wasm_std::{nonempty, VerificationStatus};
 use cosmwasm_std::testing::MockApi;
-use cosmwasm_std::{from_json, to_json_binary, HexBinary, QuerierResult, Uint128, WasmQuery};
+use cosmwasm_std::{from_json, to_json_binary, QuerierResult, Uint128, WasmQuery};
 use multisig::msg::Signer;
 use multisig::multisig::Multisig;
 use multisig::types::MultisigState;
 use multisig::verifier_set::VerifierSet;
 use service_registry_api::{AuthorizationState, BondingState, Verifier, WeightedVerifier};
-use stacks_abi_transformer::msg::DecodeResponse;
 
 use super::test_data::{self, TestOperator};
 
@@ -15,8 +14,6 @@ pub const MULTISIG_ADDRESS: &str = "multisig";
 pub const COORDINATOR_ADDRESS: &str = "coordinator";
 pub const SERVICE_REGISTRY_ADDRESS: &str = "service_registry";
 pub const VOTING_VERIFIER_ADDRESS: &str = "voting_verifier";
-pub const ITS_HUB_ADDRESS: &str = "its_hub";
-pub const STACKS_ABI_TRANSFORMER: &str = "stacks_abi_transformer";
 pub const ADMIN: &str = "admin";
 pub const GOVERNANCE: &str = "governance";
 pub const SERVICE_NAME: &str = "validators";
@@ -52,94 +49,12 @@ pub fn mock_querier_handler(
         {
             voting_verifier_mock_querier_handler(verifier_set_status)
         }
-        WasmQuery::Smart { contract_addr, .. }
-            if contract_addr
-                == MockApi::default()
-                    .addr_make(STACKS_ABI_TRANSFORMER)
-                    .as_str() =>
-        {
-            Ok(to_json_binary(&DecodeResponse {
-                clarity_payload: vec![],
-                payload_hash: HexBinary::from_hex(
-                    "ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e",
-                )
-                .unwrap()
-                .as_slice()
-                .try_into()
-                .unwrap(),
-            })
-            .into())
-            .into()
-        }
-        _ => panic!("unexpected query: {:?}", wq),
-    }
-}
-
-pub fn mock_querier_handler_its_hub(
-    operators: Vec<TestOperator>,
-    verifier_set_status: VerificationStatus,
-    its_hub_address: String,
-    nb_messages: usize,
-) -> impl Fn(&WasmQuery) -> QuerierResult {
-    move |wq: &WasmQuery| match wq {
-        WasmQuery::Smart { contract_addr, .. }
-            if contract_addr == MockApi::default().addr_make(GATEWAY_ADDRESS).as_str() =>
-        {
-            gateway_mock_querier_handler_its_hub(its_hub_address.clone(), nb_messages)
-        }
-        WasmQuery::Smart { contract_addr, msg }
-            if contract_addr == MockApi::default().addr_make(MULTISIG_ADDRESS).as_str() =>
-        {
-            multisig_mock_querier_handler(from_json(msg).unwrap(), operators.clone())
-        }
-        WasmQuery::Smart { contract_addr, msg }
-            if contract_addr
-                == MockApi::default()
-                    .addr_make(SERVICE_REGISTRY_ADDRESS)
-                    .as_str() =>
-        {
-            service_registry_mock_querier_handler(from_json(msg).unwrap(), operators.clone())
-        }
-        WasmQuery::Smart { contract_addr, .. }
-            if contract_addr
-                == MockApi::default()
-                    .addr_make(VOTING_VERIFIER_ADDRESS)
-                    .as_str() =>
-        {
-            voting_verifier_mock_querier_handler(verifier_set_status)
-        }
-        WasmQuery::Smart { contract_addr, .. }
-            if contract_addr
-                == MockApi::default()
-                    .addr_make(STACKS_ABI_TRANSFORMER)
-                    .as_str() =>
-        {
-            Ok(to_json_binary(&DecodeResponse {
-                clarity_payload: vec![],
-                payload_hash: HexBinary::from_hex(
-                    "ed9305978fd027c60310c48f29710503a2c9878a57deda4c99b87e504475595e",
-                )
-                .unwrap()
-                .as_slice()
-                .try_into()
-                .unwrap(),
-            })
-            .into())
-            .into()
-        }
         _ => panic!("unexpected query: {:?}", wq),
     }
 }
 
 fn gateway_mock_querier_handler() -> QuerierResult {
     Ok(to_json_binary(&test_data::messages()).into()).into()
-}
-
-fn gateway_mock_querier_handler_its_hub(
-    its_hub_address: String,
-    nb_messages: usize,
-) -> QuerierResult {
-    Ok(to_json_binary(&test_data::messages_its_hub(its_hub_address, nb_messages)).into()).into()
 }
 
 fn multisig_mock_querier_handler(

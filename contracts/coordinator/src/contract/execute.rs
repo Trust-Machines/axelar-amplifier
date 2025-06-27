@@ -156,11 +156,6 @@ fn instantiate_verifier(
             rewards_address: verifier_msg.rewards_address.clone(),
             msg_id_format: verifier_msg.msg_id_format.clone(),
             address_format: verifier_msg.address_format.clone(),
-
-            // Only for contracts to compile, since coordinator will not support this for Stacks
-            its_hub_address: verifier_msg.its_hub_address.clone(),
-            stacks_abi_transformer: verifier_msg.stacks_abi_transformer.clone(),
-            axelar_chain_name: verifier_msg.axelar_chain_name.clone(),
         })
         .change_context(Error::InstantiateVerifier)?,
         label,
@@ -197,11 +192,6 @@ fn instantiate_prover(
             encoder: prover_msg.encoder,
             key_type: prover_msg.key_type,
             domain_separator: prover_msg.domain_separator,
-
-            // Only for contracts to compile, since coordinator will not support this for Stacks
-            its_hub_address: prover_msg.its_hub_address.clone(),
-            stacks_abi_transformer: prover_msg.stacks_abi_transformer.clone(),
-            axelar_chain_name: prover_msg.axelar_chain_name.to_string(),
         })
         .change_context(Error::InstantiateProver)?,
         label,

@@ -76,58 +76,6 @@ fn successful_verify() {
 }
 
 #[test]
-fn successful_verify_with_payload() {
-    let (test_cases, handler) = test_cases_for_correct_verifier();
-
-    let mut responses = vec![];
-    for msgs in test_cases {
-        let mut deps = mock_dependencies();
-        update_query_handler(&mut deps.querier, handler.clone());
-
-        instantiate_contract(deps.as_mut(), "verifier", "router");
-
-        for msg in msgs {
-            // check verification is idempotent
-            let response = iter::repeat(
-                execute(
-                    deps.as_mut(),
-                    mock_env(),
-                    mock_info("sender", &[]),
-                    ExecuteMsg::VerifyMessageWithPayload {
-                        message: msg,
-                        payload: HexBinary::from_hex("00").unwrap(),
-                    },
-                )
-                .unwrap(),
-            )
-            .take(10)
-            .dedup()
-            .collect::<Vec<_>>();
-
-            assert_eq!(response.len(), 1);
-
-            responses.push(response[0].clone());
-        }
-    }
-
-    let golden_file = "tests/test_verify_with_payload.json";
-    #[cfg(feature = "generate_golden_files")]
-    {
-        let f = File::create(golden_file).unwrap();
-        serde_json::to_writer_pretty(f, &responses).unwrap();
-    }
-    #[cfg(not(feature = "generate_golden_files"))]
-    {
-        let f = File::open(golden_file).unwrap();
-        let expected_responses: Vec<Response> = serde_json::from_reader(f).unwrap();
-        assert_eq!(
-            serde_json::to_string_pretty(&responses).unwrap(),
-            serde_json::to_string_pretty(&expected_responses).unwrap()
-        );
-    }
-}
-
-#[test]
 fn successful_route_incoming() {
     let (test_cases, handler) = test_cases_for_correct_verifier();
 
@@ -222,26 +170,6 @@ fn verify_with_faulty_verifier_fails() {
         mock_env(),
         message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::VerifyMessages(generate_msgs("verifier in unreachable", 10)),
-    );
-
-    assert!(response.is_err());
-}
-
-#[test]
-fn verify_with_payload_with_faulty_verifier_fails() {
-    // if the mock querier is not overwritten, it will return an error
-    let mut deps = mock_dependencies();
-
-    instantiate_contract(deps.as_mut(), "verifier", "router");
-
-    let response = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("sender", &[]),
-        ExecuteMsg::VerifyMessageWithPayload {
-            message: generate_msgs("verifier in unreachable", 1).remove(0),
-            payload: HexBinary::from_hex("00").unwrap(),
-        },
     );
 
     assert!(response.is_err());

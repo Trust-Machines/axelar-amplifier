@@ -105,10 +105,4 @@ pub enum ContractError {
 
     #[error("messages are invalid")]
     InvalidMessages,
-
-    #[error("payload is invalid")]
-    InvalidPayload,
-
-    #[error("amount is too large for Stacks")]
-    InvalidAmount,
 }

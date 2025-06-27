@@ -52,11 +52,4 @@ pub struct InstantiateMsg {
     #[serde(with = "axelar_wasm_std::hex")] // (de)serialization with hex module
     #[schemars(with = "String")] // necessary attribute in conjunction with #[serde(with ...)]
     pub domain_separator: Hash,
-
-    /// Address of the ITS Hub contract
-    pub its_hub_address: String,
-    /// Address of the Stacks ABI Transformer contract
-    pub stacks_abi_transformer: String,
-    /// The Axelar chain name.
-    pub axelar_chain_name: String,
 }

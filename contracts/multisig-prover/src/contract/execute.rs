@@ -12,83 +12,29 @@ use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, CrossChainId, Message};
 use service_registry_api::WeightedVerifier;
-use sha3::{Digest, Keccak256};
-use stacks_abi_transformer::msg::DecodeResponse;
 
 use crate::contract::START_MULTISIG_REPLY_ID;
 use crate::encoding::EncoderExt;
 use crate::error::ContractError;
-use crate::events::{ClarityPayload, Event};
-use crate::msg::MessageIdWithPayload;
-use crate::payload::Payload;
 use crate::state::{
     Config, CONFIG, CURRENT_VERIFIER_SET, NEXT_VERIFIER_SET, PAYLOAD, REPLY_TRACKER,
 };
+use crate::Payload;
 
-pub fn construct_proof_with_payload(
+pub fn construct_proof(
     deps: DepsMut,
-    message_ids_with_payloads: Vec<MessageIdWithPayload>,
-) -> Result<Response, ContractError> {
+    message_ids: Vec<CrossChainId>,
+) -> error_stack::Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage).map_err(ContractError::from)?;
 
     let messages = messages(
         deps.querier,
-        message_ids_with_payloads
-            .iter()
-            .map(|msg| msg.message_id.clone())
-            .collect(),
+        message_ids,
         config.gateway.clone(),
         config.chain_name.clone(),
     )?;
-    // Messages need to be from ITS Hub
-    if messages
-        .iter()
-        .find(|msg| {
-            msg.cc_id.source_chain.as_ref() != config.axelar_chain_name.as_ref()
-                || msg.source_address.as_str() != config.its_hub_address.as_str()
-        })
-        .is_some()
-    {
-        return Err(ContractError::InvalidMessage.into());
-    }
 
-    let stacks_abi_transformer: stacks_abi_transformer::Client =
-        client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
-
-    // Change message payload_hash if needed
-    let mapped_messages: Result<Vec<(Message, ClarityPayload)>, ContractError> = messages
-        .into_iter()
-        .zip(message_ids_with_payloads)
-        .map(|(mut message, msg_id_with_payload)| {
-            // Payload needs to be correct, corresponding to the payload hash
-            if message.payload_hash.as_slice()
-                != Keccak256::digest(&msg_id_with_payload.payload).as_slice()
-            {
-                return Err(ContractError::InvalidPayload.into());
-            }
-
-            let DecodeResponse {
-                clarity_payload, // TODO
-                payload_hash,
-            } = stacks_abi_transformer
-                .decode_receive_from_hub(msg_id_with_payload.payload)
-                .change_context(ContractError::InvalidPayload)?;
-
-            message.payload_hash = payload_hash;
-
-            Ok((
-                message,
-                ClarityPayload {
-                    clarity_payload,
-                    payload_hash,
-                },
-            ))
-        })
-        .collect();
-
-    let (payload_messages, clarity_payloads) = mapped_messages?.into_iter().unzip();
-
-    let payload = Payload::Messages(payload_messages);
+    let payload = Payload::Messages(messages);
     let payload_id = payload.id();
 
     match PAYLOAD
@@ -132,9 +78,7 @@ pub fn construct_proof_with_payload(
     let wasm_msg =
         wasm_execute(config.multisig, &start_sig_msg, vec![]).map_err(ContractError::from)?;
 
-    Ok(Response::new()
-        .add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID))
-        .add_event(Event::ItsHubClarityPayload { clarity_payloads }))
+    Ok(Response::new().add_submessage(SubMsg::reply_on_success(wasm_msg, START_MULTISIG_REPLY_ID)))
 }
 
 fn messages(
@@ -480,7 +424,6 @@ mod tests {
 
     use axelar_wasm_std::Threshold;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi};
-    use cosmwasm_std::Addr;
     use multisig_prover_api::encoding::Encoder;
     use router_api::ChainName;
 
@@ -617,9 +560,6 @@ mod tests {
             encoder: Encoder::Abi,
             key_type: multisig::key::KeyType::Ecdsa,
             domain_separator: [0; 32],
-            its_hub_address: Addr::unchecked("doesn't matter"),
-            stacks_abi_transformer: Addr::unchecked("doesn't matter"),
-            axelar_chain_name: ChainName::try_from("axelar".to_owned()).unwrap(),
         }
     }
 }

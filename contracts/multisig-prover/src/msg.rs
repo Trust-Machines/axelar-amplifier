@@ -9,20 +9,12 @@ pub use crate::contract::MigrateMsg;
 use crate::Payload;
 
 #[cw_serde]
-pub struct MessageIdWithPayload {
-    pub message_id: CrossChainId,
-    pub payload: HexBinary,
-}
-
-#[cw_serde]
 #[derive(EnsurePermissions)]
 pub enum ExecuteMsg {
     // Start building a proof that includes specified messages
     // Queries the gateway for actual message contents
     #[permission(Any)]
     ConstructProof(Vec<CrossChainId>),
-    #[permission(Any)]
-    ConstructProofWithPayload(Vec<MessageIdWithPayload>),
     #[permission(Elevated)]
     UpdateVerifierSet,
 

@@ -70,10 +70,6 @@ pub fn execute(
         ExecuteMsg::VerifyMessages(msgs) => {
             execute::verify_messages(&verifier, msgs).change_context(Error::VerifyMessages)
         }
-        ExecuteMsg::VerifyMessageWithPayload(msgs) => {
-            execute::verify_message_with_payload(&verifier, msgs)
-                .change_context(Error::VerifyMessages)
-        }
         ExecuteMsg::RouteMessages(msgs) => {
             let router = Router::new(config.router);
 
