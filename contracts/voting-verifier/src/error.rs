@@ -1,7 +1,9 @@
 use axelar_wasm_std::{nonempty, voting, IntoContractError};
 use cosmwasm_std::{OverflowError, StdError};
 use router_api::ChainName;
+use stacks_clarity::vm::errors::Error as ClarityError;
 use thiserror::Error;
+use crate::msg::MessageWithPayload;
 
 #[derive(Error, Debug, PartialEq, IntoContractError)]
 pub enum ContractError {
@@ -54,10 +56,28 @@ pub enum ContractError {
     // exist, use a more descriptive error.
     #[error("storage error")]
     StorageError,
+
+    #[error("payload is invalid")]
+    InvalidPayload,
+
+    #[error("messages are invalid")]
+    InvalidMessages,
+
+    #[error("message is invalid")]
+    InvalidMessage(MessageWithPayload),
+
+    #[error("amount is too large for Stacks")]
+    InvalidAmount,
 }
 
 impl From<ContractError> for StdError {
     fn from(value: ContractError) -> Self {
         Self::generic_err(value.to_string())
+    }
+}
+
+impl From<ClarityError> for ContractError {
+    fn from(_: ClarityError) -> Self {
+        ContractError::InvalidPayload
     }
 }
