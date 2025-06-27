@@ -56,7 +56,7 @@ impl Client<'_> {
     ) -> Option<CosmosMsg> {
         messages.to_none_if_empty().map(|messages| {
             self.client
-                .execute(&ExecuteMsg::VerifyMessageWithPayload(messages))
+                .execute(&ExecuteMsg::VerifyMessagesWithPayload(messages))
         })
     }
 

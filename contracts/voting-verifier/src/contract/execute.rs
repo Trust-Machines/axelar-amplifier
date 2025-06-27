@@ -186,7 +186,7 @@ pub fn verify_message_with_payload(
             || message_with_payload.message.destination_address.as_str()
                 != config.its_hub_address.as_str()
         {
-            return Err(ContractError::InvalidMessage.into());
+            return Err(ContractError::InvalidMessage(message_with_payload).into());
         }
 
         // Payload needs to be correct, corresponding to the payload hash
@@ -241,28 +241,32 @@ pub fn verify_message_with_payload(
     let stacks_abi_transformer: stacks_abi_transformer::Client =
         client::ContractClient::new(deps.querier, &config.stacks_abi_transformer).into();
 
-    let mut clarity_payloads = Vec::new();
-    let messages = msgs_to_verify_with_payloads
-        .into_iter()
-        .map(|(mut msg, payload)| {
-            let DecodeResponse {
-                clarity_payload,
-                payload_hash,
-            } = stacks_abi_transformer
-                .decode_send_to_hub(payload)
-                .change_context(ContractError::InvalidPayload)?;
+    let mapped_messages: Result<Vec<(TxEventConfirmation, ClarityPayload)>, ContractError> =
+        msgs_to_verify_with_payloads
+            .into_iter()
+            .map(|(mut msg, payload)| {
+                let DecodeResponse {
+                    clarity_payload,
+                    payload_hash,
+                } = stacks_abi_transformer
+                    .decode_send_to_hub(payload)
+                    .change_context(ContractError::InvalidPayload)?;
 
-            // payload_hash needs to be changed only for event to Ampd, because Gateway RouteMessages will still be called with old payload_hash
-            msg.payload_hash = payload_hash;
+                // payload_hash needs to be changed only for event to Ampd, because Gateway RouteMessages will still be called with old payload_hash
+                msg.payload_hash = payload_hash;
 
-            clarity_payloads.push(ClarityPayload {
-                clarity_payload,
-                payload_hash,
-            });
+                Ok((
+                    TxEventConfirmation::try_from((msg, &config.msg_id_format))
+                        .map_err(|err| report!(err))?,
+                    ClarityPayload {
+                        clarity_payload,
+                        payload_hash,
+                    },
+                ))
+            })
+            .collect();
 
-            TxEventConfirmation::try_from((msg, &config.msg_id_format)).map_err(|err| report!(err))
-        })
-        .collect::<Result<Vec<TxEventConfirmation>, _>>()?;
+    let (messages, clarity_payloads) = mapped_messages?.into_iter().unzip();
 
     Ok(Response::new()
         .add_event(PollStarted::Messages {

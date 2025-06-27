@@ -33,7 +33,7 @@ pub enum ExecuteMsg {
     VerifyMessages(Vec<Message>),
 
     #[permission(Any)]
-    VerifyMessageWithPayload(Vec<MessageWithPayload>),
+    VerifyMessagesWithPayload(Vec<MessageWithPayload>),
 
     // Starts a poll to confirm a verifier set update on the external gateway
     #[permission(Any)]

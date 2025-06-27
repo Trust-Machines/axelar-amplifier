@@ -3,6 +3,7 @@ use cosmwasm_std::{OverflowError, StdError};
 use router_api::ChainName;
 use stacks_clarity::vm::errors::Error as ClarityError;
 use thiserror::Error;
+use crate::msg::MessageWithPayload;
 
 #[derive(Error, Debug, PartialEq, IntoContractError)]
 pub enum ContractError {
@@ -63,7 +64,7 @@ pub enum ContractError {
     InvalidMessages,
 
     #[error("message is invalid")]
-    InvalidMessage,
+    InvalidMessage(MessageWithPayload),
 
     #[error("amount is too large for Stacks")]
     InvalidAmount,
@@ -77,6 +78,6 @@ impl From<ContractError> for StdError {
 
 impl From<ClarityError> for ContractError {
     fn from(_: ClarityError) -> Self {
-        ContractError::InvalidMessage
+        ContractError::InvalidPayload
     }
 }
