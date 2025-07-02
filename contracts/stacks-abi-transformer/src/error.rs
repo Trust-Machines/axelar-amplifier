@@ -1,5 +1,5 @@
 use axelar_wasm_std::IntoContractError;
-use stacks_clarity::vm::errors::Error as ClarityError;
+use clarity::vm::errors::Error as ClarityError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, IntoContractError)]

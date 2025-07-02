@@ -8,15 +8,15 @@ use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message as RouterMessage;
 use sha3::{Digest, Keccak256};
-use stacks_clarity::common::codec::StacksMessageCodec;
-use stacks_clarity::common::types::StacksEpochId;
-use stacks_clarity::vm::analysis::errors::CheckErrors;
-use stacks_clarity::vm::errors::Error as ClarityError;
-use stacks_clarity::vm::representations::ClarityName;
-use stacks_clarity::vm::types::signatures::{
+use stacks_common::codec::StacksMessageCodec;
+use stacks_common::types::StacksEpochId;
+use clarity::vm::analysis::errors::CheckErrors;
+use clarity::vm::errors::Error as ClarityError;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::types::signatures::{
     BufferLength, ListTypeData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
 };
-use stacks_clarity::vm::types::{PrincipalData, TupleData, Value};
+use clarity::vm::types::{PrincipalData, TupleData, Value};
 
 use crate::error::ContractError;
 use crate::Payload;
@@ -174,7 +174,7 @@ impl WeightedSigners {
     pub fn hash(self) -> Result<Hash, ContractError> {
         let value = self.try_into_value()?;
 
-        Ok(Keccak256::digest(value.serialize_to_vec()).into())
+        Ok(Keccak256::digest(value.serialize_to_vec()?).into())
     }
 
     pub fn try_into_value(self) -> Result<Value, ContractError> {
@@ -351,7 +351,7 @@ mod tests {
     use multisig::key::PublicKey;
     use multisig::msg::Signer;
     use router_api::{CrossChainId, Message as RouterMessage};
-    use stacks_clarity::common::codec::StacksMessageCodec;
+    use clarity::common::codec::StacksMessageCodec;
 
     use crate::encoding::stacks::{payload_digest, Message, WeightedSigner, WeightedSigners};
     use crate::error::ContractError;

@@ -56,7 +56,8 @@ serde_json = { workspace = true }
 service-registry = { workspace = true }
 service-registry-api = { workspace = true }
 sha3 = { workspace = true }
-stacks-clarity = { workspace = true }
+clarity = { workspace = true }
+stacks-common = { workspace = true }
 stellar = { workspace = true }
 stellar-xdr = { workspace = true }
 sui-gateway = { workspace = true }

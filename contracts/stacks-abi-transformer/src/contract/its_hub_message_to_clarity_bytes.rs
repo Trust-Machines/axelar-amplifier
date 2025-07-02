@@ -4,9 +4,9 @@ use cosmwasm_std::{HexBinary, Uint128};
 use interchain_token_service as its;
 use interchain_token_service::{HubMessage, Message, TokenId};
 use router_api::ChainNameRaw;
-use stacks_clarity::common::codec::StacksMessageCodec;
-use stacks_clarity::vm::representations::ClarityName;
-use stacks_clarity::vm::types::{TupleData, Value};
+use stacks_common::codec::StacksMessageCodec;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::types::{TupleData, Value};
 
 use crate::error::ContractError;
 
@@ -191,9 +191,9 @@ mod tests {
     use interchain_token_service::TokenId;
     use router_api::ChainNameRaw;
     use sha3::{Digest, Keccak256};
-    use stacks_clarity::common::codec::StacksMessageCodec;
-    use stacks_clarity::vm::representations::ClarityName;
-    use stacks_clarity::vm::types::{TupleData, Value};
+    use stacks_common::codec::StacksMessageCodec;
+    use clarity::vm::representations::ClarityName;
+    use clarity::vm::types::{TupleData, Value};
 
     use crate::contract::its_hub_message_to_clarity_bytes::{
         its_hub_message_to_clarity_bytes, MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN,

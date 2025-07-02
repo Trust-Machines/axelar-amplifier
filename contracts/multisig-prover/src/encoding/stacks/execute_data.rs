@@ -5,13 +5,13 @@ use k256::ecdsa::RecoveryId;
 use multisig::key::Signature;
 use multisig::msg::SignerWithSig;
 use multisig::verifier_set::VerifierSet;
-use stacks_clarity::common::codec::StacksMessageCodec;
-use stacks_clarity::common::types::StacksEpochId;
-use stacks_clarity::vm::representations::ClarityName;
-use stacks_clarity::vm::types::signatures::{
+use stacks_common::codec::StacksMessageCodec;
+use stacks_common::types::StacksEpochId;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::types::signatures::{
     BufferLength, ListTypeData, SequenceSubtype, TypeSignature,
 };
-use stacks_clarity::vm::types::{TupleData, Value};
+use clarity::vm::types::{TupleData, Value};
 
 use crate::encoding::stacks::{
     ecdsa_key, encode_messages, payload_digest, WeightedSigners, CLARITY_MAX_LEN_SIGNATURES,
@@ -93,8 +93,8 @@ pub fn encode(
 
     let data = match payload {
         Payload::Messages(messages) => {
-            let messages = encode_messages(messages)?.serialize_to_vec();
-            let proof = proof.try_into_value()?.serialize_to_vec();
+            let messages = encode_messages(messages)?.serialize_to_vec()?;
+            let proof = proof.try_into_value()?.serialize_to_vec()?;
 
             let tuple_data = TupleData::from_data(vec![
                 (
@@ -113,13 +113,13 @@ pub fn encode(
             ])
             .change_context(ContractError::InvalidMessage)?;
 
-            HexBinary::from(Value::from(tuple_data).serialize_to_vec())
+            HexBinary::from(Value::from(tuple_data).serialize_to_vec()?)
         }
         Payload::VerifierSet(new_verifier_set) => {
             let new_verifier_set = WeightedSigners::try_from(new_verifier_set)?
                 .try_into_value()?
-                .serialize_to_vec();
-            let proof = proof.try_into_value()?.serialize_to_vec();
+                .serialize_to_vec()?;
+            let proof = proof.try_into_value()?.serialize_to_vec()?;
 
             let tuple_data = TupleData::from_data(vec![
                 (
@@ -139,7 +139,7 @@ pub fn encode(
             ])
             .change_context(ContractError::InvalidMessage)?;
 
-            HexBinary::from(Value::from(tuple_data).serialize_to_vec())
+            HexBinary::from(Value::from(tuple_data).serialize_to_vec()?)
         }
     };
 

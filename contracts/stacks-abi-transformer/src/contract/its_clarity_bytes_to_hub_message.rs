@@ -7,8 +7,8 @@
 // use crate::error::ContractError;
 // use interchain_token_service::{DeployInterchainToken, HubMessage, InterchainTransfer, Message};
 // use sha3::Digest;
-// use stacks_clarity::vm::representations::ClarityName;
-// use stacks_clarity::vm::types::{
+// use clarity::vm::representations::ClarityName;
+// use clarity::vm::types::{
 //     BufferLength, SequenceSubtype, StringSubtype, TupleData, TupleTypeSignature, TypeSignature,
 //     Value,
 // };
