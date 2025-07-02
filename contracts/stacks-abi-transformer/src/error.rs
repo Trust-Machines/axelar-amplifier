@@ -1,5 +1,5 @@
 use axelar_wasm_std::IntoContractError;
-use clarity::vm::errors::Error as ClarityError;
+use clarity::vm::errors::{Error as ClarityError, InterpreterError};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, IntoContractError)]
@@ -16,6 +16,12 @@ pub enum ContractError {
 
 impl From<ClarityError> for ContractError {
     fn from(_: ClarityError) -> Self {
+        ContractError::InvalidMessage
+    }
+}
+
+impl From<InterpreterError> for ContractError {
+    fn from(_: InterpreterError) -> Self {
         ContractError::InvalidMessage
     }
 }

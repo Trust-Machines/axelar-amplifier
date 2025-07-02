@@ -45,7 +45,7 @@ pub fn query(
     msg: QueryMsg,
 ) -> Result<Binary, axelar_wasm_std::error::ContractError> {
     match msg {
-        QueryMsg::FromBytes { payload } => {
+        QueryMsg::FromBytes { .. } => {
             unimplemented!()
             // TODO: Test this
             // to_json_binary(&query::clarity_bytes_to_hub_message(payload)?)

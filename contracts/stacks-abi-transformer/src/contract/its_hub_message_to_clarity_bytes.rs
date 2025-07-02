@@ -1,12 +1,11 @@
 use axelar_wasm_std::nonempty;
 use axelar_wasm_std::nonempty::Uint256;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::types::{TupleData, Value};
 use cosmwasm_std::{HexBinary, Uint128};
 use interchain_token_service as its;
 use interchain_token_service::{HubMessage, Message, TokenId};
 use router_api::ChainNameRaw;
-use stacks_common::codec::StacksMessageCodec;
-use clarity::vm::representations::ClarityName;
-use clarity::vm::types::{TupleData, Value};
 
 use crate::error::ContractError;
 
@@ -126,7 +125,7 @@ fn get_its_interchain_transfer_payload_receive_from_hub(
         ),
     ])?;
 
-    Ok(Value::from(tuple_data).serialize_to_vec())
+    Ok(Value::from(tuple_data).serialize_to_vec()?)
 }
 
 fn get_its_deploy_interchain_token_payload_receive_from_hub(
@@ -178,7 +177,7 @@ fn get_its_deploy_interchain_token_payload_receive_from_hub(
         ),
     ])?;
 
-    Ok(Value::from(tuple_data).serialize_to_vec())
+    Ok(Value::from(tuple_data).serialize_to_vec()?)
 }
 
 #[cfg(test)]
@@ -186,14 +185,13 @@ mod tests {
     use std::str::FromStr;
 
     use axelar_wasm_std::nonempty;
+    use clarity::vm::representations::ClarityName;
+    use clarity::vm::types::{TupleData, Value};
     use cosmwasm_std::HexBinary;
     use interchain_token_service as its;
     use interchain_token_service::TokenId;
     use router_api::ChainNameRaw;
     use sha3::{Digest, Keccak256};
-    use stacks_common::codec::StacksMessageCodec;
-    use clarity::vm::representations::ClarityName;
-    use clarity::vm::types::{TupleData, Value};
 
     use crate::contract::its_hub_message_to_clarity_bytes::{
         its_hub_message_to_clarity_bytes, MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN,
@@ -270,7 +268,7 @@ mod tests {
             ),
         ])
         .unwrap();
-        let expected_payload = Value::from(tuple_data).serialize_to_vec();
+        let expected_payload = Value::from(tuple_data).serialize_to_vec().unwrap();
 
         assert_eq!(payload, expected_payload);
     }
@@ -318,7 +316,7 @@ mod tests {
             ),
         ])
         .unwrap();
-        let expected_payload = Value::from(tuple_data).serialize_to_vec();
+        let expected_payload = Value::from(tuple_data).serialize_to_vec().unwrap();
 
         let payload = its_hub_message_to_clarity_bytes(its_hub_message).unwrap();
 

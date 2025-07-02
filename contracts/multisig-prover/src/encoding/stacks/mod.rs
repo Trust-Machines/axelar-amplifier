@@ -1,6 +1,14 @@
 pub mod execute_data;
 
 use axelar_wasm_std::hash::Hash;
+use clarity::vm::analysis::errors::CheckErrors;
+use clarity::vm::errors::Error as ClarityError;
+use clarity::vm::errors::InterpreterError;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::types::signatures::{
+    BufferLength, ListTypeData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
+};
+use clarity::vm::types::{PrincipalData, TupleData, Value};
 use cosmwasm_std::Uint256;
 use error_stack::ResultExt;
 use multisig::key::PublicKey;
@@ -8,15 +16,7 @@ use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message as RouterMessage;
 use sha3::{Digest, Keccak256};
-use stacks_common::codec::StacksMessageCodec;
 use stacks_common::types::StacksEpochId;
-use clarity::vm::analysis::errors::CheckErrors;
-use clarity::vm::errors::Error as ClarityError;
-use clarity::vm::representations::ClarityName;
-use clarity::vm::types::signatures::{
-    BufferLength, ListTypeData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
-};
-use clarity::vm::types::{PrincipalData, TupleData, Value};
 
 use crate::error::ContractError;
 use crate::Payload;
@@ -230,6 +230,12 @@ impl From<CheckErrors> for ContractError {
     }
 }
 
+impl From<InterpreterError> for ContractError {
+    fn from(_: InterpreterError) -> Self {
+        ContractError::InvalidMessage
+    }
+}
+
 pub fn ecdsa_key(pub_key: &PublicKey) -> Result<Vec<u8>, ContractError> {
     match pub_key {
         PublicKey::Ecdsa(ecdsa_key) => Ok(ecdsa_key.to_vec()),
@@ -250,7 +256,8 @@ pub fn payload_digest(
     let stacks_signed_message =
         Value::string_ascii_from_bytes(STACKS_SIGNER_MESSAGE.as_bytes().to_vec())
             .change_context(ContractError::InvalidMessage)?
-            .serialize_to_vec();
+            .serialize_to_vec()
+            .map_err(|_| ContractError::InvalidMessage)?;
 
     let unsigned = [
         stacks_signed_message.as_slice(),
@@ -277,7 +284,9 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
                 (ClarityName::from(CLARITY_NAME_DATA), message_value),
             ])?;
 
-            Ok(Value::from(tuple_data).serialize_to_vec())
+            Ok(Value::from(tuple_data)
+                .serialize_to_vec()
+                .map_err(|_| ContractError::InvalidMessage)?)
         }
         Payload::VerifierSet(verifier_set) => {
             let signers = WeightedSigners::try_from(verifier_set)?.try_into_value()?;
@@ -291,7 +300,9 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
                 (ClarityName::from(CLARITY_NAME_DATA), signers),
             ])?;
 
-            Ok(Value::from(tuple_data).serialize_to_vec())
+            Ok(Value::from(tuple_data)
+                .serialize_to_vec()
+                .map_err(|_| ContractError::InvalidMessage)?)
         }
     }
 }
@@ -347,11 +358,11 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
 
 #[cfg(test)]
 mod tests {
+    use stacks_common::codec::StacksMessageCodec;
     use cosmwasm_std::{Addr, HexBinary, Uint256};
     use multisig::key::PublicKey;
     use multisig::msg::Signer;
     use router_api::{CrossChainId, Message as RouterMessage};
-    use clarity::common::codec::StacksMessageCodec;
 
     use crate::encoding::stacks::{payload_digest, Message, WeightedSigner, WeightedSigners};
     use crate::error::ContractError;
