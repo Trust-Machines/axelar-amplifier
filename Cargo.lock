@@ -5386,6 +5386,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "its-stacks-translator"
+version = "1.0.0"
+dependencies = [
+ "assert_ok",
+ "axelar-wasm-std",
+ "clarity 0.0.1 (git+https://github.com/Jiloc/stacks-core?branch=chore/clarity-vm-feature-gate)",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "cw2",
+ "error-stack",
+ "goldie",
+ "hex",
+ "interchain-token-service",
+ "interchain-token-service-std",
+ "its-msg-translator-api",
+ "router-api",
+ "serde",
+ "serde_json",
+ "stacks-common 0.0.1 (git+https://github.com/Jiloc/stacks-core?branch=chore/clarity-vm-feature-gate)",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11564,39 +11588,6 @@ dependencies = [
  "libc",
  "psm",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "stacks-abi-transformer"
-version = "1.0.0"
-dependencies = [
- "alloy-primitives",
- "assert_ok",
- "axelar-wasm-std",
- "bech32 0.11.0",
- "clarity 0.0.1 (git+https://github.com/Jiloc/stacks-core?branch=chore/clarity-vm-feature-gate)",
- "client",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-storage-plus",
- "cw2",
- "error-stack",
- "goldie",
- "integration-tests",
- "interchain-token-service",
- "itertools 0.14.0",
- "msgs-derive",
- "multisig",
- "rand 0.8.5",
- "report",
- "router-api",
- "semver 1.0.26",
- "serde_json",
- "sha3",
- "stacks-common 0.0.1 (git+https://github.com/Jiloc/stacks-core?branch=chore/clarity-vm-feature-gate)",
- "starknet-checked-felt",
- "thiserror 1.0.69",
 ]
 
 [[package]]

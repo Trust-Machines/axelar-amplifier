@@ -7,7 +7,7 @@ use clarity::vm::types::{
 };
 use cosmwasm_std::Uint128;
 use cw_storage_plus::KeyDeserialize;
-use interchain_token_service::{
+use interchain_token_service_std::{
     DeployInterchainToken, HubMessage, InterchainTransfer, Message, TokenId,
 };
 use router_api::ChainNameRaw;
@@ -314,9 +314,12 @@ mod tests {
 
     use axelar_wasm_std::nonempty;
     use cosmwasm_std::HexBinary;
-    use interchain_token_service as its;
+    use interchain_token_service_std::{
+        DeployInterchainToken, HubMessage, InterchainTransfer, Message,
+    };
     use router_api::ChainNameRaw;
 
+    use crate::contract::its_clarity_bytes_to_hub_message::its_clarity_bytes_to_hub_message;
     use crate::contract::query::clarity_bytes_to_hub_message;
     use crate::error::ContractError;
 
@@ -327,7 +330,7 @@ mod tests {
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
-            axelar_wasm_std::error::ContractError::from(ContractError::InvalidPayload).to_string()
+            ContractError::InvalidPayload.to_string()
         );
     }
 
@@ -350,7 +353,7 @@ mod tests {
         */
         let payload = HexBinary::from_hex("0c000000031164657374696e6174696f6e2d636861696e0d00000008657468657265756d077061796c6f616402000000ab0c0000000606616d6f756e7401000000000000000000000000000186a004646174610200000001001364657374696e6174696f6e2d616464726573730200000001000e736f757263652d61646472657373051a6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce08746f6b656e2d69640200000020753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f0474797065010000000000000000000000000000000004747970650100000000000000000000000000000003").unwrap();
 
-        let result = clarity_bytes_to_hub_message(payload).unwrap();
+        let result = its_clarity_bytes_to_hub_message(payload.to_vec()).unwrap();
 
         let token_id: [u8; 32] =
             from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
@@ -358,9 +361,9 @@ mod tests {
                 .try_into()
                 .unwrap();
 
-        let expected_its_hub_message = its::HubMessage::SendToHub {
+        let expected_its_hub_message = HubMessage::SendToHub {
             destination_chain: ChainNameRaw::from_str("ethereum").unwrap(),
-            message: its::Message::InterchainTransfer(its::InterchainTransfer {
+            message: Message::InterchainTransfer(InterchainTransfer {
                 token_id: token_id.into(),
                 source_address: from_hex("051a6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce"),
                 destination_address: from_hex("00"),
@@ -391,7 +394,7 @@ mod tests {
         */
         let payload = HexBinary::from_hex("0c000000031164657374696e6174696f6e2d636861696e0d00000008657468657265756d077061796c6f616402000000920c0000000608646563696d616c730100000000000000000000000000000006066d696e746572020000000100046e616d650d0000000673616d706c650673796d626f6c0d0000000673616d706c6508746f6b656e2d69640200000020563dc3698c0f2c5adf375ff350bb54ecf86d2be109e3aacaf38111cdf171df780474797065010000000000000000000000000000000104747970650100000000000000000000000000000003").unwrap();
 
-        let result = clarity_bytes_to_hub_message(payload).unwrap();
+        let result = its_clarity_bytes_to_hub_message(payload.to_vec()).unwrap();
 
         let token_id: [u8; 32] =
             from_hex("563dc3698c0f2c5adf375ff350bb54ecf86d2be109e3aacaf38111cdf171df78")
@@ -399,9 +402,9 @@ mod tests {
                 .try_into()
                 .unwrap();
 
-        let expected_its_hub_message = its::HubMessage::SendToHub {
+        let expected_its_hub_message = HubMessage::SendToHub {
             destination_chain: ChainNameRaw::from_str("ethereum").unwrap(),
-            message: its::Message::DeployInterchainToken(its::DeployInterchainToken {
+            message: Message::DeployInterchainToken(DeployInterchainToken {
                 token_id: token_id.into(),
                 name: "sample".to_string().try_into().unwrap(),
                 symbol: "sample".to_string().try_into().unwrap(),

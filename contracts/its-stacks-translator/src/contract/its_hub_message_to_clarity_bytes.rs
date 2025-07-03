@@ -3,8 +3,9 @@ use axelar_wasm_std::nonempty::Uint256;
 use clarity::vm::representations::ClarityName;
 use clarity::vm::types::{TupleData, Value};
 use cosmwasm_std::{HexBinary, Uint128};
-use interchain_token_service as its;
-use interchain_token_service::{HubMessage, Message, TokenId};
+use interchain_token_service_std::{
+    DeployInterchainToken, HubMessage, InterchainTransfer, Message, TokenId,
+};
 use router_api::ChainNameRaw;
 
 use crate::error::ContractError;
@@ -33,7 +34,7 @@ pub fn its_hub_message_to_clarity_bytes(
             source_chain,
             message,
         } => match message {
-            Message::InterchainTransfer(its::InterchainTransfer {
+            Message::InterchainTransfer(InterchainTransfer {
                 token_id,
                 source_address,
                 destination_address,
@@ -47,7 +48,7 @@ pub fn its_hub_message_to_clarity_bytes(
                 amount,
                 data,
             ),
-            Message::DeployInterchainToken(its::DeployInterchainToken {
+            Message::DeployInterchainToken(DeployInterchainToken {
                 token_id,
                 name,
                 symbol,
@@ -188,10 +189,10 @@ mod tests {
     use clarity::vm::representations::ClarityName;
     use clarity::vm::types::{TupleData, Value};
     use cosmwasm_std::HexBinary;
-    use interchain_token_service as its;
-    use interchain_token_service::TokenId;
+    use interchain_token_service_std::{
+        DeployInterchainToken, HubMessage, InterchainTransfer, Message, TokenId,
+    };
     use router_api::ChainNameRaw;
-    use sha3::{Digest, Keccak256};
 
     use crate::contract::its_hub_message_to_clarity_bytes::{
         its_hub_message_to_clarity_bytes, MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN,
@@ -201,11 +202,15 @@ mod tests {
 
     #[test]
     fn test_its_hub_message_to_clarity_bytes_error() {
-        let token_id: [u8; 32] = Keccak256::digest(vec![]).into();
+        let token_id: [u8; 32] =
+            from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
+                .to_vec()
+                .try_into()
+                .unwrap();
 
-        let its_hub_message = its::HubMessage::SendToHub {
+        let its_hub_message = HubMessage::SendToHub {
             destination_chain: ChainNameRaw::from_str("chain").unwrap(),
-            message: its::Message::DeployInterchainToken(its::DeployInterchainToken {
+            message: Message::DeployInterchainToken(DeployInterchainToken {
                 token_id: TokenId::new(token_id),
                 name: "name".to_string().try_into().unwrap(),
                 symbol: "symbol".to_string().try_into().unwrap(),
@@ -219,17 +224,21 @@ mod tests {
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
-            axelar_wasm_std::error::ContractError::from(ContractError::InvalidPayload).to_string()
+            ContractError::InvalidPayload.to_string()
         );
     }
 
     #[test]
     fn test_its_hub_message_to_clarity_bytes_interchain_transfer() {
-        let token_id: [u8; 32] = Keccak256::digest(vec![1, 2, 3]).into();
+        let token_id: [u8; 32] =
+            from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
+                .to_vec()
+                .try_into()
+                .unwrap();
 
-        let its_hub_message = its::HubMessage::ReceiveFromHub {
+        let its_hub_message = HubMessage::ReceiveFromHub {
             source_chain: ChainNameRaw::from_str("chain").unwrap(),
-            message: its::Message::InterchainTransfer(its::InterchainTransfer {
+            message: Message::InterchainTransfer(InterchainTransfer {
                 token_id: token_id.into(),
                 source_address: from_hex("00"),
                 destination_address: from_hex("10"),
@@ -275,11 +284,15 @@ mod tests {
 
     #[test]
     fn test_its_hub_message_to_clarity_bytes_deploy_interchain_token() {
-        let token_id: [u8; 32] = Keccak256::digest(vec![]).into();
+        let token_id: [u8; 32] =
+            from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
+                .to_vec()
+                .try_into()
+                .unwrap();
 
-        let its_hub_message = its::HubMessage::ReceiveFromHub {
+        let its_hub_message = HubMessage::ReceiveFromHub {
             source_chain: ChainNameRaw::from_str("chain").unwrap(),
-            message: its::Message::DeployInterchainToken(its::DeployInterchainToken {
+            message: Message::DeployInterchainToken(DeployInterchainToken {
                 token_id: token_id.into(),
                 name: "name".to_string().try_into().unwrap(),
                 symbol: "symbol".to_string().try_into().unwrap(),

@@ -1,15 +1,21 @@
-use axelar_wasm_std::IntoContractError;
 use clarity::vm::errors::{CheckErrors, Error as ClarityError, InterpreterError};
 use clarity::vm::types::serialization::SerializationError;
+use cosmwasm_std::StdError;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq, IntoContractError)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
+    #[error(transparent)]
+    Std(#[from] StdError),
+
     #[error("payload is invalid")]
     InvalidPayload,
 
     #[error("amount is too large for Stacks")]
     InvalidAmount,
+
+    #[error("serialization failed")]
+    SerializationFailed,
 }
 
 impl From<ClarityError> for ContractError {
