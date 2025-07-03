@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use alloy_primitives::Address;
+use clarity::vm::types::PrincipalData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Api};
 use error_stack::{bail, Result, ResultExt};
-use clarity::vm::types::PrincipalData;
 use starknet_checked_felt::CheckedFelt;
 use stellar_xdr::curr::ScAddress;
 use sui_types::SuiAddress;

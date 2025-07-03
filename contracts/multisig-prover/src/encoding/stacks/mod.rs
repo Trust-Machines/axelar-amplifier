@@ -2,8 +2,7 @@ pub mod execute_data;
 
 use axelar_wasm_std::hash::Hash;
 use clarity::vm::analysis::errors::CheckErrors;
-use clarity::vm::errors::Error as ClarityError;
-use clarity::vm::errors::InterpreterError;
+use clarity::vm::errors::{Error as ClarityError, InterpreterError};
 use clarity::vm::representations::ClarityName;
 use clarity::vm::types::signatures::{
     BufferLength, ListTypeData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
@@ -307,7 +306,7 @@ fn encode(payload: &Payload) -> Result<Vec<u8>, ContractError> {
     }
 }
 
-fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError> {
+fn encode_messages(messages: &[RouterMessage]) -> Result<Value, ContractError> {
     let messages: Vec<Value> = messages
         .iter()
         .map(Message::try_from)
@@ -345,7 +344,7 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
         ),
     ])?;
 
-    Ok(Value::list_with_type(
+    Value::list_with_type(
         &StacksEpochId::latest(),
         messages,
         ListTypeData::new_list(
@@ -353,16 +352,16 @@ fn encode_messages(messages: &Vec<RouterMessage>) -> Result<Value, ContractError
             CLARITY_MAX_LEN_MESSAGES,
         )?,
     )
-    .map_err(|_| ContractError::InvalidMessages)?)
+    .map_err(|_| ContractError::InvalidMessages)
 }
 
 #[cfg(test)]
 mod tests {
-    use stacks_common::codec::StacksMessageCodec;
     use cosmwasm_std::{Addr, HexBinary, Uint256};
     use multisig::key::PublicKey;
     use multisig::msg::Signer;
     use router_api::{CrossChainId, Message as RouterMessage};
+    use stacks_common::codec::StacksMessageCodec;
 
     use crate::encoding::stacks::{payload_digest, Message, WeightedSigner, WeightedSigners};
     use crate::error::ContractError;

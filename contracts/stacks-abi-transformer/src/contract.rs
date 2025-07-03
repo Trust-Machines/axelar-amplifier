@@ -6,10 +6,10 @@ use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Resp
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
-mod migrations;
-mod query;
 mod its_clarity_bytes_to_hub_message;
 mod its_hub_message_to_clarity_bytes;
+mod migrations;
+mod query;
 
 pub use migrations::{migrate, MigrateMsg};
 
@@ -45,10 +45,8 @@ pub fn query(
     msg: QueryMsg,
 ) -> Result<Binary, axelar_wasm_std::error::ContractError> {
     match msg {
-        QueryMsg::FromBytes { .. } => {
-            unimplemented!()
-            // TODO: Test this
-            // to_json_binary(&query::clarity_bytes_to_hub_message(payload)?)
+        QueryMsg::FromBytes { payload } => {
+            to_json_binary(&query::clarity_bytes_to_hub_message(payload)?)
         }
         QueryMsg::ToBytes { message } => {
             to_json_binary(&query::hub_message_to_clarity_bytes(message)?)
@@ -59,13 +57,14 @@ pub fn query(
 
 #[cfg(test)]
 mod tests {
-    use crate::contract::{instantiate, query};
-    use crate::msg::{InstantiateMsg, QueryMsg};
     use cosmwasm_std::testing::{
         message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{Empty, HexBinary, OwnedDeps};
     use interchain_token_service::HubMessage;
+
+    use crate::contract::{instantiate, query};
+    use crate::msg::{InstantiateMsg, QueryMsg};
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();

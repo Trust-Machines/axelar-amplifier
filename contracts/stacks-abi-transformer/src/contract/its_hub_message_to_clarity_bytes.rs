@@ -9,8 +9,8 @@ use router_api::ChainNameRaw;
 
 use crate::error::ContractError;
 
-const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
-const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
+pub const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
+pub const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
 
 pub const CLARITY_NAME_TYPE: &str = "type";
 const CLARITY_NAME_SOURCE_CHAIN: &str = "source-chain";
@@ -95,20 +95,20 @@ fn get_its_interchain_transfer_payload_receive_from_hub(
         (
             ClarityName::from(CLARITY_NAME_SOURCE_CHAIN),
             Value::string_ascii_from_bytes(source_chain.to_string().into_bytes())
-                .map_err(|_| ContractError::InvalidMessage)?,
+                .map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_TOKEN_ID),
-            Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
+            Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_SOURCE_ADDRESS),
-            Value::buff_from(source_address.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
+            Value::buff_from(source_address.to_vec()).map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_DESTINATION_ADDRESS),
             Value::buff_from(destination_address.to_vec())
-                .map_err(|_| ContractError::InvalidMessage)?,
+                .map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_AMOUNT),
@@ -121,7 +121,7 @@ fn get_its_interchain_transfer_payload_receive_from_hub(
             } else {
                 vec![]
             })
-            .map_err(|_| ContractError::InvalidMessage)?,
+            .map_err(|_| ContractError::InvalidPayload)?,
         ),
     ])?;
 
@@ -146,21 +146,21 @@ fn get_its_deploy_interchain_token_payload_receive_from_hub(
         (
             ClarityName::from(CLARITY_NAME_SOURCE_CHAIN),
             Value::string_ascii_from_bytes(source_chain.to_string().into_bytes())
-                .map_err(|_| ContractError::InvalidMessage)?,
+                .map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_TOKEN_ID),
-            Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidMessage)?,
+            Value::buff_from(token_id.to_vec()).map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_NAME),
             Value::string_ascii_from_bytes(name.into_bytes())
-                .map_err(|_| ContractError::InvalidMessage)?,
+                .map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_SYMBOL),
             Value::string_ascii_from_bytes(symbol.into_bytes())
-                .map_err(|_| ContractError::InvalidMessage)?,
+                .map_err(|_| ContractError::InvalidPayload)?,
         ),
         (
             ClarityName::from(CLARITY_NAME_DECIMALS),
@@ -173,7 +173,7 @@ fn get_its_deploy_interchain_token_payload_receive_from_hub(
             } else {
                 vec![]
             })
-            .map_err(|_| ContractError::InvalidMessage)?,
+            .map_err(|_| ContractError::InvalidPayload)?,
         ),
     ])?;
 
