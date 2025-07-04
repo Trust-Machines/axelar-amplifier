@@ -11,13 +11,6 @@ exclude = [
     "hash.txt",
 ]
 
-[package.metadata.scripts]
-optimize = """docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/optimizer:0.16.1
-"""
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 
@@ -41,8 +34,8 @@ cw2 = { workspace = true }
 error-stack = { workspace = true }
 hex = { workspace = true }
 interchain-token-service-std = { workspace = true }
-its-msg-translator-api = { workspace = true }
 itertools = "0.11.0"
+its-msg-translator-api = { workspace = true }
 msgs-derive = { workspace = true }
 report = { workspace = true }
 router-api = { workspace = true }
