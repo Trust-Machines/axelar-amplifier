@@ -47,8 +47,14 @@ pub fn validate_address(address: &str, format: &AddressFormat) -> Result<(), Err
                 .change_context(Error::InvalidAddress(address.to_string()))?;
         }
         AddressFormat::Stacks => {
-            PrincipalData::parse(address)
+            let result = PrincipalData::parse(address)
                 .map_err(|_| Error::InvalidAddress(address.to_string()))?;
+
+            let str = result.to_string();
+
+            if address != str.as_str() {
+                bail!(Error::InvalidAddress(address.to_string()))
+            }
         }
     }
 
@@ -66,8 +72,10 @@ pub type ContractAddr = Addr;
 #[cfg(test)]
 mod tests {
     use assert_ok::assert_ok;
+    use clarity::vm::PrincipalData;
     use cosmwasm_std::testing::MockApi;
 
+    use crate::address::Error;
     use crate::{address, assert_err_contains};
 
     #[test]
@@ -299,25 +307,78 @@ mod tests {
     fn validate_stacks_address() {
         // account
         let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF";
-        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_ok());
+        assert_ok!(address::validate_address(
+            addr,
+            &address::AddressFormat::Stacks
+        ));
 
         // contract
         let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWC.some-contract";
-        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_ok());
+        assert_ok!(address::validate_address(
+            addr,
+            &address::AddressFormat::Stacks
+        ));
+
+        // different contract
+        let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWC.Some-Contract";
+        assert_ok!(address::validate_address(
+            addr,
+            &address::AddressFormat::Stacks
+        ));
+
+        // account with lowercase
+        let addr = "ST319CF5WV77KYR1h3gT0GZ7B8Q4AQPY42ETP1Vpf";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        // account with prefix
+        let addr = "'ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        // contract with lowercase
+        let addr = "ST319CF5WV77KYR1h3gT0GZ7B8Q4AQPY42ETP1Vpf.some-contract";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
 
         // too short
         let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VP";
-        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
 
         // too long
         let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPFF";
-        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
 
         // invalid contract
         let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWCsome-contract";
-        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
 
         let addr = "some-contract";
-        assert!(address::validate_address(addr, &address::AddressFormat::Stacks).is_err());
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
     }
 }

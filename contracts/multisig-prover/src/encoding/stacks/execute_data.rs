@@ -9,17 +9,11 @@ use multisig::key::Signature;
 use multisig::msg::SignerWithSig;
 use multisig::verifier_set::VerifierSet;
 use stacks_common::types::StacksEpochId;
+use stacks_types::constants::*;
 
-use crate::encoding::stacks::{
-    ecdsa_key, encode_messages, payload_digest, WeightedSigners, CLARITY_MAX_LEN_SIGNATURES,
-    CLARITY_NAME_DATA, CLARITY_NAME_FUNCTION, CLARITY_NAME_PROOF, CLARITY_NAME_SIGNATURES,
-    CLARITY_NAME_SIGNERS, CLARITY_SIZE_SIGNATURES,
-};
+use crate::encoding::stacks::{ecdsa_key, encode_messages, payload_digest, WeightedSigners};
 use crate::error::ContractError;
 use crate::payload::Payload;
-
-pub const APPROVE_MESSAGES_FUNCTION: &str = "approve-messages";
-pub const ROTATE_SIGNERS_FUNCTION: &str = "rotate-signers";
 
 pub struct Proof {
     pub signers: WeightedSigners,

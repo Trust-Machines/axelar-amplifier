@@ -5,9 +5,12 @@ use its_msg_translator_api::QueryMsg;
 
 use crate::error::ContractError;
 
-mod its_clarity_bytes_to_hub_message;
-mod its_hub_message_to_clarity_bytes;
+mod decode;
+mod encode;
+mod migrations;
 mod query;
+
+pub use migrations::{migrate, MigrateMsg};
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -27,13 +30,14 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
-        QueryMsg::FromBytes { payload } => query::clarity_bytes_to_hub_message(payload),
-        QueryMsg::ToBytes { message } => query::hub_message_to_clarity_bytes(message),
+        QueryMsg::FromBytes { payload } => query::bytes_to_hub_message_query(payload),
+        QueryMsg::ToBytes { message } => query::hub_message_to_bytes_query(message),
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use assert_ok::assert_ok;
     use axelar_wasm_std::nonempty;
     use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
     use cosmwasm_std::{Addr, HexBinary};
@@ -93,5 +97,27 @@ mod tests {
 
         let err = query(deps.as_ref(), env, from_bytes_msg).unwrap_err();
         assert_eq!(err, ContractError::InvalidPayload {});
+    }
+
+    #[test]
+    fn migrate_sets_contract_version() {
+        let mut deps = mock_dependencies();
+        let api = deps.api;
+        let env = mock_env();
+        let info = message_info(&api.addr_make("sender"), &[]);
+        let instantiate_msg = Empty {};
+
+        assert_ok!(instantiate(
+            deps.as_mut(),
+            env.clone(),
+            info.clone(),
+            instantiate_msg
+        ));
+
+        migrate(deps.as_mut(), mock_env(), Empty {}).unwrap();
+
+        let contract_version = cw2::get_contract_version(deps.as_mut().storage).unwrap();
+        assert_eq!(contract_version.contract, CONTRACT_NAME);
+        assert_eq!(contract_version.version, CONTRACT_VERSION);
     }
 }

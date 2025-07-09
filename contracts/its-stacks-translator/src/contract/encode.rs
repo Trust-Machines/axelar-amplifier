@@ -7,27 +7,11 @@ use interchain_token_service_std::{
     DeployInterchainToken, HubMessage, InterchainTransfer, Message, TokenId,
 };
 use router_api::ChainNameRaw;
+use stacks_types::constants::*;
 
 use crate::error::ContractError;
 
-pub const MESSAGE_TYPE_INTERCHAIN_TRANSFER: u128 = 0;
-pub const MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN: u128 = 1;
-
-pub const CLARITY_NAME_TYPE: &str = "type";
-const CLARITY_NAME_SOURCE_CHAIN: &str = "source-chain";
-pub const CLARITY_NAME_TOKEN_ID: &str = "token-id";
-pub const CLARITY_NAME_SOURCE_ADDRESS: &str = "source-address";
-pub const CLARITY_NAME_DESTINATION_ADDRESS: &str = "destination-address";
-pub const CLARITY_NAME_AMOUNT: &str = "amount";
-pub const CLARITY_NAME_DATA: &str = "data";
-pub const CLARITY_NAME_NAME: &str = "name";
-pub const CLARITY_NAME_SYMBOL: &str = "symbol";
-pub const CLARITY_NAME_DECIMALS: &str = "decimals";
-const CLARITY_NAME_MINTER_BYTES: &str = "minter-bytes";
-
-pub fn its_hub_message_to_clarity_bytes(
-    its_hub_message: HubMessage,
-) -> Result<Vec<u8>, ContractError> {
+pub fn hub_message_to_bytes(its_hub_message: HubMessage) -> Result<Vec<u8>, ContractError> {
     let payload = match its_hub_message {
         HubMessage::SendToHub { .. } => Err(ContractError::InvalidPayload),
         HubMessage::ReceiveFromHub {
@@ -40,7 +24,7 @@ pub fn its_hub_message_to_clarity_bytes(
                 destination_address,
                 amount,
                 data,
-            }) => get_its_interchain_transfer_payload_receive_from_hub(
+            }) => interchain_transfer_message_to_bytes(
                 source_chain,
                 token_id,
                 source_address.into(),
@@ -54,7 +38,7 @@ pub fn its_hub_message_to_clarity_bytes(
                 symbol,
                 decimals,
                 minter,
-            }) => get_its_deploy_interchain_token_payload_receive_from_hub(
+            }) => deploy_interchain_token_message_to_bytes(
                 source_chain,
                 token_id,
                 name.into(),
@@ -70,7 +54,7 @@ pub fn its_hub_message_to_clarity_bytes(
     Ok(payload)
 }
 
-fn get_its_interchain_transfer_payload_receive_from_hub(
+fn interchain_transfer_message_to_bytes(
     source_chain: ChainNameRaw,
     token_id: TokenId,
     source_address: HexBinary,
@@ -129,7 +113,7 @@ fn get_its_interchain_transfer_payload_receive_from_hub(
     Ok(Value::from(tuple_data).serialize_to_vec()?)
 }
 
-fn get_its_deploy_interchain_token_payload_receive_from_hub(
+fn deploy_interchain_token_message_to_bytes(
     source_chain: ChainNameRaw,
     token_id: TokenId,
     name: String,
@@ -194,14 +178,14 @@ mod tests {
     };
     use router_api::ChainNameRaw;
 
-    use crate::contract::its_hub_message_to_clarity_bytes::{
-        its_hub_message_to_clarity_bytes, MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN,
+    use crate::contract::encode::{
+        hub_message_to_bytes, MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN,
         MESSAGE_TYPE_INTERCHAIN_TRANSFER,
     };
     use crate::error::ContractError;
 
     #[test]
-    fn test_its_hub_message_to_clarity_bytes_error() {
+    fn hub_message_to_bytes_error() {
         let token_id: [u8; 32] =
             from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
                 .to_vec()
@@ -219,7 +203,7 @@ mod tests {
             }),
         };
 
-        let res = its_hub_message_to_clarity_bytes(its_hub_message);
+        let res = hub_message_to_bytes(its_hub_message);
 
         assert!(res.is_err());
         assert_eq!(
@@ -229,7 +213,7 @@ mod tests {
     }
 
     #[test]
-    fn test_its_hub_message_to_clarity_bytes_interchain_transfer() {
+    fn hub_message_to_bytes_interchain_transfer() {
         let token_id: [u8; 32] =
             from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
                 .to_vec()
@@ -247,7 +231,7 @@ mod tests {
             }),
         };
 
-        let payload = its_hub_message_to_clarity_bytes(its_hub_message).unwrap();
+        let payload = hub_message_to_bytes(its_hub_message).unwrap();
 
         let tuple_data = TupleData::from_data(vec![
             (
@@ -279,11 +263,13 @@ mod tests {
         .unwrap();
         let expected_payload = Value::from(tuple_data).serialize_to_vec().unwrap();
 
+        goldie::assert!(HexBinary::from(expected_payload.clone()).to_hex());
+
         assert_eq!(payload, expected_payload);
     }
 
     #[test]
-    fn test_its_hub_message_to_clarity_bytes_deploy_interchain_token() {
+    fn hub_message_to_bytes_deploy_interchain_token() {
         let token_id: [u8; 32] =
             from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
                 .to_vec()
@@ -331,7 +317,9 @@ mod tests {
         .unwrap();
         let expected_payload = Value::from(tuple_data).serialize_to_vec().unwrap();
 
-        let payload = its_hub_message_to_clarity_bytes(its_hub_message).unwrap();
+        let payload = hub_message_to_bytes(its_hub_message).unwrap();
+
+        goldie::assert!(HexBinary::from(expected_payload.clone()).to_hex());
 
         assert_eq!(payload, expected_payload);
     }

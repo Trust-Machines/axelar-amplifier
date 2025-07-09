@@ -16,39 +16,10 @@ use multisig::verifier_set::VerifierSet;
 use router_api::Message as RouterMessage;
 use sha3::{Digest, Keccak256};
 use stacks_common::types::StacksEpochId;
+use stacks_types::constants::*;
 
 use crate::error::ContractError;
 use crate::Payload;
-
-const TYPE_APPROVE_MESSAGES: &str = "approve-messages";
-const TYPE_ROTATE_SIGNERS: &str = "rotate-signers";
-
-const STACKS_SIGNER_MESSAGE: &str = "Stacks Signed Message";
-
-pub const CLARITY_NAME_SIGNERS: &str = "signers";
-pub const CLARITY_NAME_SIGNATURES: &str = "signatures";
-pub const CLARITY_SIZE_SIGNATURES: u32 = 65;
-pub const CLARITY_MAX_LEN_SIGNATURES: u32 = 100;
-pub const CLARITY_NAME_FUNCTION: &str = "function";
-pub const CLARITY_NAME_DATA: &str = "data";
-pub const CLARITY_NAME_PROOF: &str = "proof";
-
-const CLARITY_NAME_SOURCE_CHAIN: &str = "source-chain";
-const CLARITY_SIZE_SOURCE_CHAIN: u32 = 20;
-const CLARITY_NAME_MESSAGE_ID: &str = "message-id";
-const CLARITY_SIZE_MESSAGE_ID: u32 = 128;
-const CLARITY_NAME_SOURCE_ADDRESS: &str = "source-address";
-const CLARITY_SIZE_SOURCE_ADDRESS: u32 = 128;
-const CLARITY_NAME_CONTRACT_ADDRESS: &str = "contract-address";
-const CLARITY_NAME_PAYLOAD_HASH: &str = "payload-hash";
-const CLARITY_SIZE_PAYLOAD_HASH: u32 = 32;
-const CLARITY_NAME_SIGNER: &str = "signer";
-const CLARITY_SIZE_SIGNER: u32 = 33;
-const CLARITY_NAME_WEIGHT: &str = "weight";
-const CLARITY_NAME_THRESHOLD: &str = "threshold";
-const CLARITY_NAME_NONCE: &str = "nonce";
-const CLARITY_NAME_TYPE: &str = "type";
-const CLARITY_MAX_LEN_MESSAGES: u32 = 10;
 
 #[derive(Debug)]
 pub struct Message {

@@ -5449,9 +5449,11 @@ dependencies = [
  "interchain-token-service-std",
  "its-msg-translator-api",
  "router-api",
+ "semver 1.0.26",
  "serde",
  "serde_json",
  "stacks-common 0.0.1 (git+https://github.com/Jiloc/stacks-core?branch=chore/clarity-vm-feature-gate)",
+ "stacks-types",
  "thiserror 1.0.69",
 ]
 
@@ -6662,6 +6664,7 @@ dependencies = [
  "service-registry-api",
  "sha3",
  "stacks-common 0.0.1 (git+https://github.com/Jiloc/stacks-core?branch=chore/clarity-vm-feature-gate)",
+ "stacks-types",
  "stellar",
  "stellar-xdr",
  "sui-gateway",
@@ -11713,6 +11716,10 @@ dependencies = [
  "slog-term",
  "toml 0.5.11",
 ]
+
+[[package]]
+name = "stacks-types"
+version = "1.0.0"
 
 [[package]]
 name = "standback"

@@ -12,31 +12,12 @@ use interchain_token_service_std::{
 };
 use router_api::ChainNameRaw;
 use stacks_common::codec::StacksMessageCodec;
+use stacks_types::constants::*;
 
-use crate::contract::its_hub_message_to_clarity_bytes::{
-    CLARITY_NAME_AMOUNT, CLARITY_NAME_DATA, CLARITY_NAME_DECIMALS,
-    CLARITY_NAME_DESTINATION_ADDRESS, CLARITY_NAME_NAME, CLARITY_NAME_SOURCE_ADDRESS,
-    CLARITY_NAME_SYMBOL, CLARITY_NAME_TOKEN_ID, CLARITY_NAME_TYPE,
-    MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN, MESSAGE_TYPE_INTERCHAIN_TRANSFER,
-};
 use crate::error::ContractError;
 
-const MESSAGE_TYPE_SEND_TO_HUB: u128 = 3;
-
-const CLARITY_NAME_DESTINATION_CHAIN: &str = "destination-chain";
-const CLARITY_NAME_PAYLOAD: &str = "payload";
-const CLARITY_NAME_MINTER: &str = "minter";
-const CLARITY_SIZE_DESTINATION_CHAIN: u32 = 19;
-const CLARITY_SIZE_PAYLOAD: u32 = 63_000;
-const CLARITY_SIZE_TOKEN_ID: u32 = 32;
-const CLARITY_SIZE_DESTINATION_ADDRESS: u32 = 128;
-const CLARITY_SIZE_DATA: u32 = 62_000;
-const CLARITY_SIZE_NAME: u32 = 32;
-const CLARITY_SIZE_SYMBOL: u32 = 32;
-const CLARITY_SIZE_MINTER: u32 = 128;
-
-pub fn its_clarity_bytes_to_hub_message(payload: Vec<u8>) -> Result<HubMessage, ContractError> {
-    let tuple_data = get_its_hub_call_params(payload)?;
+pub fn bytes_to_hub_message(payload: Vec<u8>) -> Result<HubMessage, ContractError> {
+    let tuple_data = its_hub_call_params(payload)?;
 
     // All messages should go through ITS hub
     if !tuple_data
@@ -73,8 +54,8 @@ pub fn its_clarity_bytes_to_hub_message(payload: Vec<u8>) -> Result<HubMessage, 
         .expect_u128()?;
 
     let message = match its_type {
-        MESSAGE_TYPE_INTERCHAIN_TRANSFER => get_its_interchain_transfer_message(payload),
-        MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN => get_its_deploy_interchain_token_payload(payload),
+        MESSAGE_TYPE_INTERCHAIN_TRANSFER => bytes_to_interchain_transfer_message(payload),
+        MESSAGE_TYPE_DEPLOY_INTERCHAIN_TOKEN => bytes_to_deploy_interchain_token_message(payload),
         _ => {
             return Err(ContractError::InvalidPayload);
         }
@@ -87,7 +68,7 @@ pub fn its_clarity_bytes_to_hub_message(payload: Vec<u8>) -> Result<HubMessage, 
     })
 }
 
-fn get_its_hub_call_params(payload: Vec<u8>) -> Result<TupleData, ContractError> {
+fn its_hub_call_params(payload: Vec<u8>) -> Result<TupleData, ContractError> {
     let its_send_to_hub_signature = TupleTypeSignature::try_from(vec![
         (
             ClarityName::from(CLARITY_NAME_TYPE),
@@ -117,7 +98,7 @@ fn get_its_hub_call_params(payload: Vec<u8>) -> Result<TupleData, ContractError>
     Ok(its_hub_value)
 }
 
-fn get_its_interchain_transfer_message(payload: Vec<u8>) -> Result<Message, ContractError> {
+fn bytes_to_interchain_transfer_message(payload: Vec<u8>) -> Result<Message, ContractError> {
     let tuple_type_signature = TupleTypeSignature::try_from(vec![
         (
             ClarityName::from(CLARITY_NAME_TOKEN_ID),
@@ -213,7 +194,7 @@ fn get_its_interchain_transfer_message(payload: Vec<u8>) -> Result<Message, Cont
     }))
 }
 
-fn get_its_deploy_interchain_token_payload(payload: Vec<u8>) -> Result<Message, ContractError> {
+fn bytes_to_deploy_interchain_token_message(payload: Vec<u8>) -> Result<Message, ContractError> {
     let tuple_type_signature = TupleTypeSignature::try_from(vec![
         (
             ClarityName::from(CLARITY_NAME_TOKEN_ID),
@@ -319,13 +300,13 @@ mod tests {
     };
     use router_api::ChainNameRaw;
 
-    use crate::contract::its_clarity_bytes_to_hub_message::its_clarity_bytes_to_hub_message;
-    use crate::contract::query::clarity_bytes_to_hub_message;
+    use crate::contract::decode::bytes_to_hub_message;
+    use crate::contract::query::bytes_to_hub_message_query;
     use crate::error::ContractError;
 
     #[test]
-    fn test_clarity_bytes_to_hub_message_error() {
-        let res = clarity_bytes_to_hub_message(HexBinary::from_hex("abcd").unwrap());
+    fn bytes_to_hub_message_error() {
+        let res = bytes_to_hub_message_query(HexBinary::from_hex("abcd").unwrap());
 
         assert!(res.is_err());
         assert_eq!(
@@ -335,7 +316,7 @@ mod tests {
     }
 
     #[test]
-    fn test_clarity_bytes_to_hub_message_interchain_transfer() {
+    fn bytes_to_hub_message_interchain_transfer() {
         /*
             payload is:
             {
@@ -353,7 +334,7 @@ mod tests {
         */
         let payload = HexBinary::from_hex("0c000000031164657374696e6174696f6e2d636861696e0d00000008657468657265756d077061796c6f616402000000ab0c0000000606616d6f756e7401000000000000000000000000000186a004646174610200000001001364657374696e6174696f6e2d616464726573730200000001000e736f757263652d61646472657373051a6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce08746f6b656e2d69640200000020753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f0474797065010000000000000000000000000000000004747970650100000000000000000000000000000003").unwrap();
 
-        let result = its_clarity_bytes_to_hub_message(payload.to_vec()).unwrap();
+        let result = bytes_to_hub_message(payload.to_vec()).unwrap();
 
         let token_id: [u8; 32] =
             from_hex("753306c46380848b5189cd9db90107b15d25decccd93dcb175c0098958f18b6f")
@@ -376,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    fn test_clarity_bytes_to_hub_message_deploy_interchain_token() {
+    fn bytes_to_hub_message_deploy_interchain_token() {
         /*
             payload is:
             {
@@ -394,7 +375,7 @@ mod tests {
         */
         let payload = HexBinary::from_hex("0c000000031164657374696e6174696f6e2d636861696e0d00000008657468657265756d077061796c6f616402000000920c0000000608646563696d616c730100000000000000000000000000000006066d696e746572020000000100046e616d650d0000000673616d706c650673796d626f6c0d0000000673616d706c6508746f6b656e2d69640200000020563dc3698c0f2c5adf375ff350bb54ecf86d2be109e3aacaf38111cdf171df780474797065010000000000000000000000000000000104747970650100000000000000000000000000000003").unwrap();
 
-        let result = its_clarity_bytes_to_hub_message(payload.to_vec()).unwrap();
+        let result = bytes_to_hub_message(payload.to_vec()).unwrap();
 
         let token_id: [u8; 32] =
             from_hex("563dc3698c0f2c5adf375ff350bb54ecf86d2be109e3aacaf38111cdf171df78")

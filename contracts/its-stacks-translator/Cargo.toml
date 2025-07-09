@@ -23,6 +23,7 @@ interchain-token-service-std = { workspace = true }
 interchain-token-service = { workspace = true }
 its-msg-translator-api = { workspace = true }
 router-api = { workspace = true }
+semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -30,6 +31,7 @@ thiserror = { workspace = true }
 # Stacks dependencies
 clarity = { workspace = true }
 stacks-common = { workspace = true }
+stacks-types = { workspace = true }
 
 [dev-dependencies]
 assert_ok = { workspace = true }
