@@ -11,7 +11,7 @@ use stacks_types::constants::*;
 
 use crate::error::ContractError;
 
-pub fn hub_message_to_bytes(its_hub_message: HubMessage) -> Result<Vec<u8>, ContractError> {
+pub fn hub_message_to_bytes(its_hub_message: HubMessage) -> Result<HexBinary, ContractError> {
     let payload = match its_hub_message {
         HubMessage::SendToHub { .. } => Err(ContractError::InvalidPayload),
         HubMessage::ReceiveFromHub {
@@ -51,7 +51,7 @@ pub fn hub_message_to_bytes(its_hub_message: HubMessage) -> Result<Vec<u8>, Cont
         HubMessage::RegisterTokenMetadata(_) => Err(ContractError::InvalidPayload),
     }?;
 
-    Ok(payload)
+    Ok(payload.into())
 }
 
 fn interchain_transfer_message_to_bytes(
@@ -262,10 +262,11 @@ mod tests {
         ])
         .unwrap();
         let expected_payload = Value::from(tuple_data).serialize_to_vec().unwrap();
+        let expected_payload_hex = HexBinary::from(expected_payload);
 
-        goldie::assert!(HexBinary::from(expected_payload.clone()).to_hex());
+        goldie::assert!(expected_payload_hex.to_hex());
 
-        assert_eq!(payload, expected_payload);
+        assert_eq!(payload, expected_payload_hex);
     }
 
     #[test]
@@ -316,12 +317,13 @@ mod tests {
         ])
         .unwrap();
         let expected_payload = Value::from(tuple_data).serialize_to_vec().unwrap();
+        let expected_payload_hex = HexBinary::from(expected_payload);
 
         let payload = hub_message_to_bytes(its_hub_message).unwrap();
 
-        goldie::assert!(HexBinary::from(expected_payload.clone()).to_hex());
+        goldie::assert!(expected_payload_hex.to_hex());
 
-        assert_eq!(payload, expected_payload);
+        assert_eq!(payload, expected_payload_hex);
     }
 
     fn from_hex(hex: &str) -> nonempty::HexBinary {
