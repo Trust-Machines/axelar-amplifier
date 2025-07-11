@@ -124,8 +124,10 @@ mod tests {
         message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        from_json, Addr, Empty, Fraction, OwnedDeps, SubMsgResponse, SubMsgResult, Uint128, Uint64,
+        from_json, Addr, Empty, Fraction, HexBinary, OwnedDeps, SubMsgResponse, SubMsgResult,
+        Uint128, Uint64,
     };
+    use multisig::key::KeyType;
     use multisig::msg::Signer;
     use multisig::verifier_set::VerifierSet;
     use multisig_prover_api::encoding::Encoder;
@@ -150,6 +152,79 @@ mod tests {
 
         deps.querier.update_wasm(mock_querier_handler(
             test_data::operators(),
+            VerificationStatus::SucceededOnSourceChain,
+        ));
+
+        instantiate(
+            deps.as_mut(),
+            mock_env(),
+            message_info(&api.addr_make(ADMIN), &[]),
+            InstantiateMsg {
+                admin_address: api.addr_make(ADMIN).to_string(),
+                governance_address: api.addr_make(GOVERNANCE).to_string(),
+                gateway_address: api.addr_make(GATEWAY_ADDRESS).to_string(),
+                multisig_address: api.addr_make(MULTISIG_ADDRESS).to_string(),
+                coordinator_address: api.addr_make(COORDINATOR_ADDRESS).to_string(),
+                service_registry_address: api.addr_make(SERVICE_REGISTRY_ADDRESS).to_string(),
+                voting_verifier_address: api.addr_make(VOTING_VERIFIER_ADDRESS).to_string(),
+                signing_threshold: test_data::threshold(),
+                service_name: SERVICE_NAME.to_string(),
+                chain_name: "ganache-0".to_string(),
+                verifier_set_diff_threshold: 0,
+                encoder: Encoder::Abi,
+                key_type: multisig::key::KeyType::Ecdsa,
+                domain_separator: [0; 32],
+            },
+        )
+        .unwrap();
+
+        deps
+    }
+
+    fn max_length_operators() -> Vec<TestOperator> {
+        let valid_pub_keys = [
+            "0312474390012cfbb621c91295dae42b11daaceffbcb7136045c86537a7b37042c",
+            "0315a4c9807fb3e3eb360c6b2cd09ba9edb28b566aaf986b4e107180d89895d42c",
+            "022ffb2327809de022e5aaa651508d397c10d7a2ce60c9115884a295cbab293530",
+            "028e02adae730573377cd167095c8b4c63dcc4a2095171ffc9538c7bbbaed31fb2",
+            "02d1e0cff63aa3e7988e4070242fa37871a9abc79ecf851cce9877297d1316a090",
+        ];
+
+        (0..101)
+            .map(|i| {
+                let address = format!("axelar1up3vvhxg4swh2lfeh8n84dat86j6hmgz20d{:03}", i);
+                let pub_key = valid_pub_keys[i % valid_pub_keys.len()];
+                let operator = format!("6C51eec96bf0a8ec799cdD0Bbcb4512f8334Af{:02x}", i % 256);
+                let signature = if i % 2 == 0 {
+                    Some(format!("72b242d7247fc31d14ce82b32f3ea911808f6f600f362150f9904c974315942927c25f9388cecdbbb0b3723164eea92206775870cd28e1ffd8f1cb9655fb3c{:02x}1b", i % 256))
+                } else {
+                    None
+                };
+
+                TestOperator {
+                    address: Addr::unchecked(address),
+                    pub_key: (KeyType::Ecdsa, HexBinary::from_hex(&pub_key).unwrap())
+                        .try_into()
+                        .unwrap(),
+                    operator: HexBinary::from_hex(&operator).unwrap(),
+                    weight: Uint128::from(1u32),
+                    signature: signature.map(|sig| {
+                        (KeyType::Ecdsa, HexBinary::from_hex(&sig).unwrap())
+                            .try_into()
+                            .unwrap()
+                    }),
+                }
+            })
+            .collect()
+    }
+
+    fn setup_test_case_verifiers_max_length() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty>
+    {
+        let mut deps = mock_dependencies();
+        let api = deps.api;
+
+        deps.querier.update_wasm(mock_querier_handler(
+            max_length_operators(),
             VerificationStatus::SucceededOnSourceChain,
         ));
 
@@ -416,6 +491,33 @@ mod tests {
 
         let expected_verifier_set =
             test_operators_to_verifier_set(test_data::operators(), mock_env().block.height);
+
+        assert_eq!(verifier_set, expected_verifier_set.into());
+    }
+
+    #[test]
+    fn test_update_verifier_set_limit_max_length() {
+        let mut deps = setup_test_case_verifiers_max_length();
+        let verifier_set = query_verifier_set(deps.as_ref());
+        assert!(verifier_set.is_ok());
+        assert!(verifier_set.unwrap().is_none());
+        let res = execute_update_verifier_set(deps.as_mut());
+
+        assert!(res.is_ok());
+
+        let verifier_set = query_verifier_set(deps.as_ref());
+        assert!(verifier_set.is_ok());
+
+        let verifier_set = verifier_set.unwrap().unwrap();
+
+        let mut max_length_operators = max_length_operators();
+        // initial operators have length 101, after update_verifier_set max length should be 100
+        assert_eq!(max_length_operators.len(), 101);
+
+        max_length_operators.truncate(100);
+
+        let expected_verifier_set =
+            test_operators_to_verifier_set(max_length_operators, mock_env().block.height);
 
         assert_eq!(verifier_set, expected_verifier_set.into());
     }
