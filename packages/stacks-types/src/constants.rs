@@ -44,7 +44,7 @@ pub const CLARITY_MAX_LEN_MESSAGES: u32 = 10;
 */
 pub const CLARITY_SIZE_SIGNATURES: u32 = 65; // size of ECDSA signature
 pub const CLARITY_MAX_LEN_SIGNATURES: u32 = 100; // Stacks supports a max of 100 signers
-pub const CLARITY_SIZE_SOURCE_CHAIN: u32 = 19;
+pub const CLARITY_SIZE_SOURCE_CHAIN: u32 = 20;
 pub const CLARITY_SIZE_MESSAGE_ID: u32 = 128;
 pub const CLARITY_SIZE_SOURCE_ADDRESS: u32 = 128;
 pub const CLARITY_SIZE_PAYLOAD_HASH: u32 = 32;
@@ -53,7 +53,7 @@ pub const CLARITY_SIZE_SIGNER: u32 = 33; // size of ECDSA public key
 /*
    Clarity sizes for ITS constants
 */
-pub const CLARITY_SIZE_DESTINATION_CHAIN: u32 = 19;
+pub const CLARITY_SIZE_DESTINATION_CHAIN: u32 = 20;
 pub const CLARITY_SIZE_PAYLOAD: u32 = 63_000; // max cross chain payload is 64_000, hence the wrapped payload needs to be slightly smaller
 pub const CLARITY_SIZE_TOKEN_ID: u32 = 32;
 pub const CLARITY_SIZE_DESTINATION_ADDRESS: u32 = 128;
