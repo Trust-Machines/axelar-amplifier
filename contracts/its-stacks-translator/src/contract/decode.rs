@@ -1,17 +1,17 @@
 use std::str::FromStr;
 
-use clarity::vm::representations::ClarityName;
-use clarity::vm::types::{
+use clarity_serialization::representations::ClarityName;
+use clarity_serialization::types::{
     BufferLength, SequenceSubtype, StringSubtype, TupleData, TupleTypeSignature, TypeSignature,
     Value,
 };
+use clarity_serialization::codec::StacksMessageCodec;
 use cosmwasm_std::Uint128;
 use cw_storage_plus::KeyDeserialize;
 use interchain_token_service_std::{
     DeployInterchainToken, HubMessage, InterchainTransfer, Message, TokenId,
 };
 use router_api::ChainNameRaw;
-use stacks_common::codec::StacksMessageCodec;
 use stacks_types::constants::*;
 
 use crate::error::ContractError;

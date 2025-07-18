@@ -1,14 +1,14 @@
 use axelar_wasm_std::hash::Hash;
-use clarity::vm::representations::ClarityName;
-use clarity::vm::types::signatures::{BufferLength, ListTypeData, SequenceSubtype, TypeSignature};
-use clarity::vm::types::{TupleData, Value};
+use clarity_serialization::representations::ClarityName;
+use clarity_serialization::types::signatures::{BufferLength, ListTypeData, SequenceSubtype, TypeSignature};
+use clarity_serialization::types::{TupleData, Value};
+use clarity_serialization::stacks_types::StacksEpochId;
 use cosmwasm_std::HexBinary;
 use error_stack::ResultExt;
 use k256::ecdsa::RecoveryId;
 use multisig::key::Signature;
 use multisig::msg::SignerWithSig;
 use multisig::verifier_set::VerifierSet;
-use stacks_common::types::StacksEpochId;
 use stacks_types::constants::*;
 
 use crate::encoding::stacks::{ecdsa_key, encode_messages, payload_digest, WeightedSigners};

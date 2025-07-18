@@ -1,13 +1,13 @@
 pub mod execute_data;
 
 use axelar_wasm_std::hash::Hash;
-use clarity::vm::analysis::errors::CheckErrors;
-use clarity::vm::errors::{Error as ClarityError, InterpreterError};
-use clarity::vm::representations::ClarityName;
-use clarity::vm::types::signatures::{
+use clarity_serialization::errors::CodecError;
+use clarity_serialization::representations::ClarityName;
+use clarity_serialization::types::signatures::{
     BufferLength, ListTypeData, SequenceSubtype, StringSubtype, TupleTypeSignature, TypeSignature,
 };
-use clarity::vm::types::{PrincipalData, TupleData, Value};
+use clarity_serialization::types::{PrincipalData, TupleData, Value};
+use clarity_serialization::stacks_types::StacksEpochId;
 use cosmwasm_std::Uint256;
 use error_stack::ResultExt;
 use multisig::key::PublicKey;
@@ -15,7 +15,6 @@ use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::Message as RouterMessage;
 use sha3::{Digest, Keccak256};
-use stacks_common::types::StacksEpochId;
 use stacks_types::constants::*;
 
 use crate::error::ContractError;
@@ -188,20 +187,8 @@ impl WeightedSigners {
     }
 }
 
-impl From<ClarityError> for ContractError {
-    fn from(_: ClarityError) -> Self {
-        ContractError::InvalidMessage
-    }
-}
-
-impl From<CheckErrors> for ContractError {
-    fn from(_: CheckErrors) -> Self {
-        ContractError::InvalidMessage
-    }
-}
-
-impl From<InterpreterError> for ContractError {
-    fn from(_: InterpreterError) -> Self {
+impl From<CodecError> for ContractError {
+    fn from(_: CodecError) -> Self {
         ContractError::InvalidMessage
     }
 }
@@ -332,7 +319,7 @@ mod tests {
     use multisig::key::PublicKey;
     use multisig::msg::Signer;
     use router_api::{CrossChainId, Message as RouterMessage};
-    use stacks_common::codec::StacksMessageCodec;
+    use clarity_serialization::codec::StacksMessageCodec;
 
     use crate::encoding::stacks::{payload_digest, Message, WeightedSigner, WeightedSigners};
     use crate::error::ContractError;

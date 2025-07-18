@@ -1,7 +1,7 @@
 use axelar_wasm_std::nonempty;
 use axelar_wasm_std::nonempty::Uint256;
-use clarity::vm::representations::ClarityName;
-use clarity::vm::types::{TupleData, Value};
+use clarity_serialization::representations::ClarityName;
+use clarity_serialization::types::{TupleData, Value};
 use cosmwasm_std::{HexBinary, Uint128};
 use interchain_token_service_std::{
     DeployInterchainToken, HubMessage, InterchainTransfer, Message, TokenId,
@@ -170,8 +170,8 @@ mod tests {
     use std::str::FromStr;
 
     use axelar_wasm_std::nonempty;
-    use clarity::vm::representations::ClarityName;
-    use clarity::vm::types::{TupleData, Value};
+    use clarity_serialization::representations::ClarityName;
+    use clarity_serialization::types::{TupleData, Value};
     use cosmwasm_std::HexBinary;
     use interchain_token_service_std::{
         DeployInterchainToken, HubMessage, InterchainTransfer, Message, TokenId,

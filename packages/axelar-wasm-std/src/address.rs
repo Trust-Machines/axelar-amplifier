@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use alloy_primitives::Address;
-use clarity::vm::types::PrincipalData;
+use clarity_serialization::types::PrincipalData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Api};
 use error_stack::{bail, Result, ResultExt};
@@ -72,10 +72,8 @@ pub type ContractAddr = Addr;
 #[cfg(test)]
 mod tests {
     use assert_ok::assert_ok;
-    use clarity::vm::PrincipalData;
     use cosmwasm_std::testing::MockApi;
 
-    use crate::address::Error;
     use crate::{address, assert_err_contains};
 
     #[test]
