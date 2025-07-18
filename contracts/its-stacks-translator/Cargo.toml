@@ -29,8 +29,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 # Stacks dependencies
-clarity = { workspace = true }
-stacks-common = { workspace = true }
+clarity-serialization = { workspace = true }
 stacks-types = { workspace = true }
 
 [dev-dependencies]

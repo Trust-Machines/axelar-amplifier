@@ -49,8 +49,7 @@ serde_json = { workspace = true }
 service-registry = { workspace = true }
 service-registry-api = { workspace = true }
 sha3 = { workspace = true }
-clarity = { workspace = true }
-stacks-common = { workspace = true }
+clarity-serialization = { workspace = true }
 stacks-types = { workspace = true }
 stellar = { workspace = true }
 stellar-xdr = { workspace = true }

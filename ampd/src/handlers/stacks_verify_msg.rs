@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use async_trait::async_trait;
 use axelar_wasm_std::msg_id::HexTxHashAndEventIndex;
 use axelar_wasm_std::voting::{PollId, Vote};
-use clarity::vm::types::{PrincipalData, TypeSignature};
+use clarity_serialization::types::{PrincipalData, TypeSignature};
 use cosmrs::cosmwasm::MsgExecuteContract;
 use cosmrs::tx::Msg;
 use cosmrs::Any;
@@ -378,16 +378,14 @@ mod tests {
     async fn test_handler() -> Handler {
         let client = Client::faux();
 
-        let handler = Handler::new(
+        Handler::new(
             ChainName::from_str("stacks").unwrap(),
             TMAddress::random(PREFIX),
             TMAddress::random(PREFIX),
             client,
             watch::channel(0).1,
         )
-        .unwrap();
-
-        handler
+        .unwrap()
     }
 
     fn poll_started_event(participants: Vec<TMAddress>) -> PollStarted {
