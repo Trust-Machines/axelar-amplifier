@@ -98,7 +98,7 @@ starknet-core = "0.12.0"
 starknet-providers = "0.12.0"
 starknet-types-core = { version = "0.1.7" }
 # TODO: Update these dependencies after Stacks releases proper version
-clarity-serialization = { git = "https://github.com/Jiloc/stacks-core", branch = "feat/clarity-serialization-crate", default-features = false, features = ["wasm-deterministic"] }
+clarity-serialization = { git = "https://github.com/Jiloc/stacks-core", rev = "426c57c8e3cedd0d150c777e63317975037d0a2c", default-features = false, features = ["wasm-deterministic"] }
 stellar = { version = "^1.0.0", path = "external-gateways/stellar" }
 stellar-xdr = { version = "21.2.0" }
 strum = { version = "0.25", default-features = false, features = ["derive"] }
