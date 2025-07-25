@@ -1,0 +1,38 @@
+[package]
+name = "its-stacks-translator"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+# Axelar dependencies
+axelar-wasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw2 = { workspace = true }
+error-stack = { workspace = true }
+hex = { workspace = true }
+interchain-token-service-std = { workspace = true }
+interchain-token-service = { workspace = true }
+its-msg-translator-api = { workspace = true }
+router-api = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+# Stacks dependencies
+clarity-serialization = { workspace = true }
+stacks-types = { workspace = true }
+
+[dev-dependencies]
+assert_ok = { workspace = true }
+cosmwasm-schema = { workspace = true }
+goldie = { workspace = true }

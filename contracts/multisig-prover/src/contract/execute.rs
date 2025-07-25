@@ -12,7 +12,7 @@ use multisig::msg::Signer;
 use multisig::verifier_set::VerifierSet;
 use router_api::{ChainName, CrossChainId, Message};
 use service_registry_api::WeightedVerifier;
-
+use stacks_types::constants::CLARITY_MAX_LEN_SIGNATURES;
 use crate::contract::START_MULTISIG_REPLY_ID;
 use crate::encoding::EncoderExt;
 use crate::error::ContractError;
@@ -135,7 +135,7 @@ fn make_verifier_set(
     let multisig: multisig::Client =
         client::ContractClient::new(deps.querier, &config.multisig).into();
 
-    let participants_with_pubkeys = verifiers
+    let mut participants_with_pubkeys = verifiers
         .into_iter()
         .filter_map(|verifier| {
             match multisig.public_key(verifier.verifier_info.address.to_string(), config.key_type) {
@@ -147,6 +147,11 @@ fn make_verifier_set(
 
     if participants_with_pubkeys.len() < min_num_verifiers as usize {
         return Err(ContractError::NotEnoughVerifiers.into());
+    }
+
+    // Limit the number of signers for Stacks
+    if participants_with_pubkeys.len() > CLARITY_MAX_LEN_SIGNATURES as usize {
+        participants_with_pubkeys.truncate(CLARITY_MAX_LEN_SIGNATURES as usize);
     }
 
     let snapshot = Snapshot::new(
