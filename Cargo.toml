@@ -102,6 +102,7 @@ starknet-checked-felt = { version = "^1.0.0", path = "packages/starknet-checked-
 starknet-core = "0.12.0"
 starknet-providers = "0.12.0"
 starknet-types-core = { version = "0.1.7" }
+clarity-serialization = { git = "https://github.com/stacks-network/stacks-core", tag = "3.2.0.0.0", default-features = false, features = ["wasm-deterministic"] }
 stellar = { version = "^1.0.0", path = "external-gateways/stellar" }
 stellar-xdr = { version = "21.2.0" }
 strum = { version = "0.25", default-features = false, features = ["derive"] }
@@ -126,6 +127,8 @@ typed-builder = "0.18.2"
 valuable = "0.1.1"
 voting-verifier = { version = "^1.1.0", path = "contracts/voting-verifier" }
 voting-verifier-api = { version = "1.0.0", path = "packages/voting-verifier-api" }
+its-stacks-translator = { version = "^1.0.0", path = "contracts/its-stacks-translator" }
+stacks-types = { version = "^1.0.0", path = "packages/stacks-types" }
 xrpl-types = { version = "^1.0.0", path = "packages/xrpl-types" }
 
 [workspace.lints.clippy]

@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use alloy_primitives::Address;
+use clarity_serialization::types::PrincipalData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Api};
 use error_stack::{bail, Result, ResultExt};
@@ -21,6 +22,7 @@ pub enum AddressFormat {
     Sui,
     Stellar,
     Starknet,
+    Stacks,
 }
 
 pub fn validate_address(address: &str, format: &AddressFormat) -> Result<(), Error> {
@@ -43,6 +45,16 @@ pub fn validate_address(address: &str, format: &AddressFormat) -> Result<(), Err
         AddressFormat::Starknet => {
             CheckedFelt::from_str(address)
                 .change_context(Error::InvalidAddress(address.to_string()))?;
+        }
+        AddressFormat::Stacks => {
+            let result = PrincipalData::parse(address)
+                .map_err(|_| Error::InvalidAddress(address.to_string()))?;
+
+            let str = result.to_string();
+
+            if address != str.as_str() {
+                bail!(Error::InvalidAddress(address.to_string()))
+            }
         }
     }
 
@@ -284,6 +296,85 @@ mod tests {
                 upper_case_invalid.as_str(),
                 &address::AddressFormat::Starknet
             ),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+    }
+
+    #[test]
+    fn validate_stacks_address() {
+        // account
+        let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF";
+        assert_ok!(address::validate_address(
+            addr,
+            &address::AddressFormat::Stacks
+        ));
+
+        // contract
+        let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWC.some-contract";
+        assert_ok!(address::validate_address(
+            addr,
+            &address::AddressFormat::Stacks
+        ));
+
+        // different contract
+        let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWC.Some-Contract";
+        assert_ok!(address::validate_address(
+            addr,
+            &address::AddressFormat::Stacks
+        ));
+
+        // account with lowercase
+        let addr = "ST319CF5WV77KYR1h3gT0GZ7B8Q4AQPY42ETP1Vpf";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        // account with prefix
+        let addr = "'ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        // contract with lowercase
+        let addr = "ST319CF5WV77KYR1h3gT0GZ7B8Q4AQPY42ETP1Vpf.some-contract";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        // too short
+        let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VP";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        // too long
+        let addr = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPFF";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        // invalid contract
+        let addr = "SP2N959SER36FZ5QT1CX9BR63W3E8X35WQCMBYYWCsome-contract";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
+            address::Error,
+            address::Error::InvalidAddress(..)
+        );
+
+        let addr = "some-contract";
+        assert_err_contains!(
+            address::validate_address(addr, &address::AddressFormat::Stacks),
             address::Error,
             address::Error::InvalidAddress(..)
         );
